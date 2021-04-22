@@ -1,0 +1,402 @@
+---
+title: "Kenya Census"
+author: "Antony Rono"
+date: 2021-04-17
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# Introduction
+
+This is an short analysis of the Kenya Census data. We've looked at:
+
+1.  Population distribution by county
+
+2.  Household Size
+
+3.  Farming Patterns
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(tidyverse)
+library(janitor)
+library(ggrepel)
+library(ggthemes)
+library(ggpubr)
+library(RColorBrewer)
+library(rKenyaCensus)
+library(patchwork)
+library(sp)
+library(sf)
+
+theme_set(theme_light())
+
+options(scipen = 99)
+
+```
+
+# Loading and Cleaning Data
+
+```{r Load, include=FALSE}
+
+tt <- tt_load("2021-01-19")
+
+tt %>% 
+  
+  map(glimpse)
+
+
+gender <- tt$gender %>% 
+  
+  clean_names() %>% 
+  
+    mutate(county = str_to_title(county))
+
+
+household <- tt$households %>% 
+  
+  clean_names() %>% 
+  
+  mutate(county = str_replace(county, "([a-z])([A-Z])", "\\1 \\2"),
+         
+         county = str_to_title(county)) %>% 
+  
+    mutate(county = (str_trim(county))
+           
+           )
+
+crops <- tt$crops %>% 
+  
+  clean_names() %>% 
+  
+  rename(county = sub_county) %>% 
+  
+  mutate(county = str_to_title(county)
+         
+         ) 
+```
+
+## How is the gender distributed across all the counties?
+
+```{r Visualize Gender by sex and county}
+
+ gender %>% 
+  
+  filter(county != "Total") %>% 
+  
+  pivot_longer( cols = c(male, female, intersex),
+               
+               names_to = "gender", values_to = "Population") %>% 
+  
+  mutate(county = str_to_title(county)) %>% 
+  
+  mutate(county = fct_reorder(county, total, sum),
+         
+         gender = fct_reorder(gender, Population, sum, desc = TRUE)
+         
+         ) %>% 
+  
+  ggplot(aes(Population, county, fill = gender)) +
+  
+  scale_x_continuous(labels = comma, expand = c(0,0))+
+  
+  geom_col() +
+  
+  labs(title = "Population Distribution by Counties and Sex",
+       subtitle = "The proportion of sex seems to be equal in all counties")
+
+
+
+
+
+```
+
+## What is the Proportion of males in each county?
+
+```{r Visualize Proportion of males by County}
+gender %>% 
+  
+  filter(county != "Total") %>% 
+  
+  mutate(pct_male = male/total,
+         
+         pct_female = female/total) %>% 
+  
+  ggplot(aes(total, pct_male)) +
+  
+  geom_jitter()+
+  
+  geom_label_repel(aes(label = county)) +
+  
+  geom_hline(yintercept = 0.5, color = "red")+
+  
+  scale_x_continuous(labels = comma)+
+  
+  scale_y_continuous(labels = percent)+
+  
+  ggtitle("Prroportion of Males in Each County")
+
+
+```
+
+## What is the HH Size by County?
+
+```{r Visualize Households, dpi = 200}
+
+household %>% 
+
+  filter(county != "Kenya") %>% 
+  
+  ggplot(aes(population, average_household_size)) +
+  
+  geom_jitter()+
+  
+  geom_label_repel(aes(label = county)) +
+  
+  scale_x_continuous(labels = comma)+
+  
+  scale_y_continuous(labels = comma)+
+  
+  ggtitle("HH Size by County")
+```
+
+## Is there any correlation between HH size and proportion of males
+
+```{r Relatioship between HH size and Prop of Male}
+
+household %>% 
+  
+  left_join(gender, by = "county") %>% 
+  
+  filter(county != "Kenya") %>% 
+  
+    mutate(pct_male = male/total,
+         
+         pct_female = female/total) %>% 
+  
+  ggplot(aes(average_household_size,pct_male ))+
+  
+  geom_point()+
+  
+  #guides(color = FALSE)+
+  
+  stat_cor(color = "blue")+
+  
+  geom_smooth(color = "red",se = FALSE)+
+  
+  scale_y_continuous(labels = percent) +
+  
+  labs(title = "Relationship between HH Size and Proportion of Males",
+       
+       subtitle = "Weak positive correlation between HH Size of % Male",
+       
+       caption = "We can conclude that HH_size and % Males are not correlated, at 5 % significance")
+
+```
+
+```{r Crops Clean}
+## Crops as rows
+crops_clean <- crops %>% 
+  
+  mutate_at(vars(-"county"), as.numeric) %>% 
+  
+  pivot_longer(cols = -c(farming, county),
+               
+               names_to = "crop",
+               
+               values_to = "households") %>% 
+  
+  filter(!is.na(households), county != "Kenya") %>% 
+  
+  mutate(county = str_to_title(county),
+         
+         county = fct_reorder(county, households, sum),
+         
+         crop = fct_reorder(crop, households, sum, desc = FALSE))
+
+
+```
+
+## What are the most common crops being grown?
+
+```{r overall crops breakdown}
+
+## Stacked bar chart of crops by county and HHs
+crops_clean %>% 
+  
+  group_by(crop) %>% 
+  
+  summarise(households = sum(households)) %>% 
+  
+  ggplot(aes(households, crop, fill = crop))+
+  
+  geom_col()+
+  
+  theme(legend.title = element_blank()) +
+  
+  ggtitle("Distribution of crops")
+
+
+```
+
+## Which crops are being grown in all counties, and to what extent?
+
+```{r Visualize Crop Heatmap}
+
+## Heatmap of crops by county and HHs
+
+crops_clean%>% 
+  
+  complete(crop, county, fill = list(households = 0)) %>% 
+  
+  ggplot(aes(crop, county, fill = households)) +
+  
+  geom_tile() +
+  
+    scale_fill_gradient(low = "#e6550d",
+                      high = "#fee6ce",
+                      guide = "colorbar") +
+  
+  scale_y_discrete(expand=c(0,0))+
+  
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  
+  
+  ggtitle("Crops grown by County and HH") +
+  
+  labs(x = "Crop",
+       
+       y = "",
+       
+       fill = "No. of HHs growing this crop - Heatmap")
+
+
+```
+
+## Which are the heaviest farming counties
+
+```{r Visualize Proportion of Popn doing farming}
+
+crops_clean %>%
+
+  left_join(household, by = "county") %>%
+
+  mutate(percent_doing_farming = farming/number_of_households ) %>%
+
+  distinct(county, number_of_households, percent_doing_farming) %>%
+
+  ggplot(aes(number_of_households, percent_doing_farming)) +
+
+  geom_point()+
+
+  #geom_text(aes(label = county), vjust = -1, hjust = 1)+
+
+  geom_text_repel(aes(label = county))+
+
+  scale_x_continuous(labels = comma)+
+
+  scale_y_continuous(labels = percent) +
+
+  labs(title = "Proportion of HH doing Farming per County",
+
+          subtitle = "More then 80% of the HHs in Bomet and Kitui do farming \nLess than 5% of the HHs in Monbasa do farming"
+
+       )
+
+
+```
+
+# What are the top 5 counties with the highest proportion of HHs farming each crop
+
+```{r Visualize Top 5 Counties per Crop}
+
+crops_clean %>% 
+  
+  left_join(household, by = "county") %>% 
+  
+  mutate(percent_doing_farming = households/number_of_households ) %>% 
+  
+  group_by(crop) %>% 
+  
+  slice_max(order_by = percent_doing_farming,n= 5) %>% 
+  
+  #distinct(county, number_of_households, percent_doing_farming) %>% 
+  
+  ggplot(aes(number_of_households, percent_doing_farming)) +
+  
+  geom_point()+
+  
+  #geom_text(aes(label = county), vjust = 1, hjust = 1, check_overlap = TRUE)+
+  
+  geom_label_repel(aes(label = county))+
+  
+  scale_x_continuous(labels = comma)+
+  
+  scale_y_continuous(labels = percent) +
+  
+  labs(title = "Top 5 Counties with Highest Proportion of HHs doing Farming for Each Crop"
+       ) +
+  
+  facet_wrap(~crop)
+  
+
+```
+
+# Kenyan Map
+
+```{r Kenyan Map of Population}
+
+kenya_sf <- KenyaCounties_SHP %>%
+  
+  st_as_sf() %>% 
+  
+  st_simplify(dTolerance = 200) %>% 
+  
+  clean_names() %>% 
+  
+  mutate(county = str_to_title(county)) %>% 
+  
+  select(-population) %>% 
+  
+  left_join(household, by = "county") %>% 
+  
+  left_join(gender %>% select(-total), by = "county") 
+
+
+
+
+kenya_sf %>% 
+
+  ggplot(aes(fill = population))+
+  
+  geom_sf(data = kenya_sf) +
+  
+  scale_fill_distiller(palette = "Spectral")+
+  
+  ggsflabel::geom_sf_label_repel(aes(label = county),  size = 1.6)+
+  
+  #geom_sf_text(aes(label = county))+
+  
+  theme_map() + 
+  
+  theme(plot.title = element_text(size = 30, hjust = .5))+
+  
+  labs(title = "Kenyan Population by County")
+  
+```
+
+
+```{r Saving the most recent plot}
+
+ggsave(
+  filename = "./plots/kenya_census.png",
+  device = "png")
+
+```
