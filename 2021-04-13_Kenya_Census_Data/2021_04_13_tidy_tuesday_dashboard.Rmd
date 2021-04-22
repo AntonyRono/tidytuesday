@@ -32,10 +32,18 @@ library(patchwork)
 library(sp)
 library(sf)
 library(flexdashboard)
+library(here)
+
+
+knitr::opts_knit$set(root.dir = here("dashboards"))
+
+#setwd( here("dashboards"))
 
 theme_set(theme_light())
-```
 
+
+
+```
 
 ```{r Load, include=FALSE}
 
