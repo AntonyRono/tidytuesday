@@ -1,0 +1,131 @@
+---
+title: "Netflix_Titles"
+author: "Antony Rono"
+date: 2021-04-20
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(janitor)
+library(scales)
+library(widyr)
+library(tidygraph)
+library(ggraph)
+library(extrafont)
+library(tidylo)
+library(tidytext)
+
+theme_set(theme_light())
+```
+
+# Load the weekly Data
+
+```{r Load}
+
+tt <- tt_load("2021-04-20")
+
+data <- tt$netflix_titles
+
+netflix <- data %>%
+  
+  clean_names() %>% 
+  
+  separate(duration, c("duration", "duration_units"), sep = " ", convert = TRUE) %>% 
+  
+  mutate(decade = 10*(release_year %/% 10))
+
+```
+
+## Words Clustering - Those that tend to appear together in description
+
+```{r clustering of words}
+
+set.seed(2021) 
+
+words_unnested <- netflix %>% 
+  
+  unnest_tokens(word, description, drop = FALSE) %>% 
+  
+  anti_join(stop_words, by = "word") %>% 
+  
+  filter(str_length(word) >2)
+  
+
+words_unnested %>% 
+  
+  distinct(type, title, word ) %>% 
+  
+  add_count(word, name = "word_total") %>% 
+  
+  arrange(desc(word_total)) %>% 
+  
+  filter(word_total >=30) %>% 
+  
+  pairwise_cor(word, title, sort = TRUE) %>% 
+  
+  filter(correlation > 0.1) %>% 
+  
+  igraph::graph_from_data_frame() %>% 
+  
+  #ggraph(layout = "igraph", algorithm = 'kk') +
+  
+  ggraph(layout = "fr")+
+  
+  geom_edge_link(aes( color ="red" )) +
+  
+  geom_node_point( show.legend = FALSE, color = "red") +
+
+  geom_node_text(aes(label = name), repel = TRUE, 
+                 
+      color = "#66FF66",
+      
+      segment.color = NA,
+      
+      size = 3.5
+      )+
+  
+  theme_void() +
+    
+  theme(
+      plot.background = element_rect(fill = "#330033", color = NA),
+      
+      plot.caption = element_text(
+        
+        hjust = 0.5,
+        
+        color = "#F0F0F0",
+        
+        margin = margin(b = 30)
+      ), 
+      
+      legend.position = "none"
+      
+    ) +
+      geom_text(
+        
+      aes(x = 16.86, y = 18.16, label = "Clusters of words\nthat tend to appear\ntogether in movie\ntitles"),
+      
+      color = "#FFFFFF",
+      
+      size = 3,
+      
+      family = "Goudy ExtraBold"
+    )
+  
+  
+```
+
+# Save Image
+```{r save image}
+ggsave(
+  filename = "./plots/netflix_titles.png",
+  device = "png")
+
+```

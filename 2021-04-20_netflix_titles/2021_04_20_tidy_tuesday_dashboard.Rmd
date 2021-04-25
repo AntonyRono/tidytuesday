@@ -1,0 +1,810 @@
+---
+title: "Netflix Titles"
+author: "Antony Rono"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    source_code: embed
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+library(flexdashboard)
+library(tidyverse)
+library(tidytuesdayR)
+library(plotly)
+library(janitor)
+library(magrittr)
+library(lubridate)
+library(scales)
+library(ggsci)
+
+
+theme_set(theme_light())
+
+```
+
+```{r Load data, include=FALSE}
+
+# tt <- tt_load("2021-04-20")
+# 
+# data <- tt$netflix_titles
+
+data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-04-20/netflix_titles.csv')
+
+netflix <- data %>%
+  
+  clean_names() %>% 
+  
+  separate(duration, c("duration", "duration_units"), sep = " ", convert = TRUE) %>% 
+  
+  mutate(decade = 10*(release_year %/% 10))
+
+skimr::skim(netflix)
+```
+
+```{r function to summarize movies, include=FALSE}
+
+summarize_titles <- function(data){
+  
+  data %>% 
+    
+      summarize(n = n(),
+            
+            median_duration = median(duration),
+            
+            median_year = median(release_year),
+            
+            avg_duration = mean(duration),
+            
+            ) %>% 
+    
+    arrange(desc(n))
+    
+    
+}
+```
+
+
+```{r function to summarize by count and percent, include=FALSE}
+
+summarize_by_count_and_percent <- function(x, y){
+  
+  netflix %>% 
+    
+    separate_rows({{x}}, sep = ",") %>% 
+    
+    separate_rows({{y}}, sep = ",") %>% 
+    
+    mutate(
+      
+      {{x}} := str_trim({{x}}),
+      
+      {{y}} := str_trim({{y}})
+      
+    ) %>% 
+    
+    filter(!is.na({{x}}), !is.na({{y}})) %>% 
+    
+    mutate({{x}} := fct_lump_n({{x}},10),
+           
+           {{y}} := fct_lump_n({{y}},15)
+    ) %>% 
+    
+    count({{x}}, {{y}}, name = "count", sort = TRUE) %>% 
+    
+    group_by({{x}}) %>% 
+    
+    mutate(pct = count/sum(count)) %>% 
+    
+    ungroup() %>% 
+    
+    mutate({{x}} := fct_reorder({{x}}, count, sum, .desc = FALSE),
+           
+           {{y}} := fct_reorder({{y}}, count, sum, .desc = FALSE)
+    ) 
+}
+
+```
+
+Overall {data-icon="fa-chart-line"}
+=======================================================================
+
+Row {data-height=250}
+-----------------------------------------------------------------------
+### Total Releases
+```{r count of released}
+
+valueBox(value = comma(nrow(data)), caption = "Total Releases", icon = "fa-user-plus", color = "green")
+
+```
+
+### Number of Countries Produced
+
+```{r number of countries}
+
+countries <- netflix %>% 
+  
+  separate_rows(country, sep = ",") %>% 
+  
+  mutate(country = str_trim(country)) %>% 
+  
+  distinct(country) %>% 
+  
+  nrow %>% 
+  
+  comma
+  
+gauge(countries, min = 0, max = 195, gaugeSectors(success = c(131, 195), warning = c(66,130), danger = c(0, 65)))
+
+```
+
+
+### Percentage of Movies and TV Shows
+
+```{r proportion of movies and tv shows}
+
+netflix %>% 
+  
+  count(type) %>% 
+  
+  plot_ly(labels = ~ type, values = ~ n) %>% 
+  
+  add_pie(hole = 0.6)
+
+```
+
+Row {data-height=750}
+-----------------------------------------------------------------------
+
+### Overall Trend in Productions in the Last Two Decades
+
+```{r production by year  - stacked bar chart}
+
+type_year_count_df <- netflix %>% 
+  
+    count(type, release_year) %>% 
+  
+    filter(release_year > 2000)
+  
+p <- type_year_count_df %>% 
+  
+  ggplot(aes(release_year, n)) +
+  
+  geom_col(aes(fill = type)) +
+  
+  geom_line(data = type_year_count_df %>% filter(type == "Movie"), color = "red1",  size = 1) +
+  
+  geom_line(data = type_year_count_df %>% filter(type == "TV Show"), color = "cyan4",  size = 1) +
+  
+  scale_y_continuous(expand = c(0,0)) +
+  
+  scale_x_continuous(expand = c(0,0), n.breaks = 11) +
+  
+  labs(y = "Count")
+
+
+ggplotly(p)
+```
+
+### Relative Trend in TV Shows and Movies
+
+```{r}
+p <- netflix %>% 
+  
+  count(type, release_year) %>%
+  
+  group_by(release_year) %>% 
+  
+  pivot_wider(names_from = type, values_from = n, values_fill = 0) %>% 
+  
+  clean_names() %>% 
+  
+  mutate(pct_tv_shows = tv_show/sum(movie, tv_show),
+         
+         pct_movies = 1 - pct_tv_shows) %>% 
+  
+  
+  pivot_longer(cols = starts_with("pct"), names_to = "type", values_to = "pct") %>% 
+  
+  mutate(type = ifelse(str_detect(type, "movies"), "Movie", "TV Show")) %>% 
+  
+  ggplot(aes(release_year, pct, color = type))+
+  
+  geom_point() +
+  
+  geom_line(arrow = arrow(angle = 15, ends = "last", type = "closed")) +
+  
+    scale_y_continuous(labels = percent, expand = c(0,0), limits = c(0,1.05)) +
+  
+   scale_x_continuous(expand = c(0,0), n.breaks = 15, limits = c(1925, 2022)) +
+  
+  labs(y = "Proportion of all releases")
+
+ggplotly(p)
+
+```
+
+Country {data-orientation=columns data-icon="fa-location-arrow"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Total Number of Productions by Country
+
+```{r total production by countr - worldmap}
+
+library(highcharter)
+library(maps)
+
+prod_country <- netflix %>% 
+  
+  separate_rows(country, sep = ",") %>% 
+  
+  mutate(country = str_trim(country)) %>% 
+  
+  filter(str_detect(country, "")) %>% 
+  
+  count(country) %>% 
+  
+  mutate(country = case_when(
+    
+    str_detect(country, "Germany") ~ "Germany",
+    
+    country == "United Kingdom" ~ "UK",
+    
+    country == "Soviet Union" ~ "Russia",
+    
+    country == "Vatican City" ~ "Vatican",
+    
+    TRUE ~ country
+    
+  )) %>% 
+  
+  mutate(`iso-a3`= coalesce(iso3166$a3[match(country,iso3166$sovereignty)], iso3166$a3[match(country , iso3166$ISOname)])) 
+
+hcmap(
+  
+   map = "custom/world-highres3", # high resolution world map
+  
+   data = prod_country, # name of dataset
+  
+   joinBy = "iso-a3",
+  
+   value = "n",
+  
+   showInLegend = FALSE, # hide legend
+  
+   nullColor = "#DADADA",
+  
+   download_map_data = TRUE
+) %>% 
+   
+    hc_mapNavigation(enabled = FALSE) %>%
+  
+   hc_legend("none") #%>%
+  
+   #hc_title(text = "Production By Country") # title
+ 
+
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Breakdown by Country and Type 
+
+```{r production by country and type-worldmap }
+
+p <- netflix %>% 
+  
+  separate_rows(country, sep = ",") %>% 
+  
+  mutate(country = str_trim(country)) %>% 
+  
+  filter(!is.na(country)) %>% 
+  
+  count(type, country = fct_lump(country, 15), sort = TRUE, name = "count") %>% 
+  
+  mutate(country = fct_reorder(country, count, sum),
+         
+         ) %>% 
+  
+  ggplot(aes(country, count, fill = type)) +
+  
+  geom_col() +
+  
+  scale_y_continuous(expand = c(0,0)) +
+  
+  coord_flip() +
+  
+  labs(y = "Count")
+
+ggplotly(p)
+
+```
+
+### Breakdown By Ratings
+
+```{r production by country and ratings}
+
+p <- summarize_by_count_and_percent(country, rating) %>% 
+
+  ggplot(aes(country, pct, fill = rating))+
+  
+  geom_col() +
+  
+  scale_y_continuous(expand = c(0,0), labels = percent) +
+    
+  coord_flip() +
+  
+  labs(y = "proportion of all releases")
+
+ggplotly(p)
+
+```
+
+Genre {data-orientation=columns data-icon="fa-code"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Breakdown by Type
+
+```{r production by genre}
+
+p <- netflix %>% 
+  
+  separate_rows(listed_in, sep = ",") %>% 
+  
+  mutate(listed_in = str_trim(listed_in)) %>% 
+  
+  count(type, listed_in) %>% 
+  
+  mutate(listed_in = fct_reorder(listed_in, n, sum)) %>% 
+  
+  filter(!is.na(listed_in)) %>% 
+  
+  slice_max(n, n =30) %>% 
+  
+  ggplot(aes(listed_in, n, fill = type)) +
+  
+  geom_col() +
+  
+  scale_y_continuous(expand = c(0,0)) +
+  
+  coord_flip() +
+  
+  labs(y = "Count",
+       
+       x = "Genre") +
+  
+  facet_wrap(~type, scales = "free", ncol = 2) +
+  
+  theme(legend.position = "none") 
+
+
+ggplotly(p)
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Breakdown By Rating
+
+```{r production by genre and ratings}
+
+ p <- summarize_by_count_and_percent(listed_in, rating) %>% 
+
+  ggplot(aes(listed_in, pct, fill = rating))+
+  
+  geom_col() +
+  
+  scale_y_continuous(expand = c(0,0), labels = percent) +
+    
+  coord_flip() +
+  
+  labs(y = "proportion of all ratings",
+       
+       x = "genre")
+
+ggplotly(p)
+
+```
+
+
+Duration {data-icon="fa-calendar-check"}
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Trend of Length of Movies Overtime
+```{r duration of movies over the years}
+
+p <- ggplot() +
+  
+  geom_boxplot(data = netflix %>% filter(type == "Movie") , aes(decade, duration,group = decade), outlier.colour = "red", outlier.shape = 1) +
+  
+  geom_line(data = netflix %>% filter(type == "Movie") %>%  group_by(decade) %>% summarise(avg_length = median(duration)) %>% ungroup(), aes(decade, avg_length),size = 1, color = "darkorchid4")+
+  
+  scale_x_continuous(n.breaks = 15) 
+  
+ggplotly(p)
+  
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Breakdown By Country
+
+```{r duration of movies by country}
+
+
+p <- netflix %>% 
+  
+  separate_rows(country, sep = ",") %>% 
+  
+  mutate(country = str_trim(country)) %>% 
+  
+  group_by(type, country = fct_lump(country, 20)) %>% 
+  
+  summarize_titles() %>% 
+
+  filter(type == "Movie") %>% 
+  
+  mutate(country = fct_reorder(country, median_duration)) %>% 
+  
+  filter(!is.na(country)) %>% 
+  
+  ggplot(aes(country, median_duration, fill = country)) +
+  
+  geom_col() +
+  
+  scale_y_continuous(expand = c(0,0)) +
+  
+  theme(legend.position = "none") +
+  
+  coord_flip() +
+  
+  labs(y = "Duration (minutes)",
+       
+       x = "Genre") 
+  
+ggplotly(p)
+```
+
+### Breakdown by Genre
+
+```{r duration of movies by genre}
+
+p <- netflix %>% 
+  
+  separate_rows(listed_in, sep = ",") %>% 
+  
+  mutate(listed_in = str_trim(listed_in)) %>% 
+  
+  group_by(type, listed_in) %>% 
+  
+  summarize_titles() %>% 
+
+  filter(type == "Movie") %>% 
+  
+  filter(listed_in != "Movies") %>% 
+  
+  mutate(listed_in = fct_reorder(listed_in, median_duration)) %>% 
+  
+  filter(!is.na(listed_in)) %>% 
+  
+  ggplot(aes(listed_in, median_duration, fill = listed_in)) +
+  
+  geom_col() +
+  
+  scale_y_continuous(expand = c(0,0)) +
+  
+  theme(legend.position = "none") +
+  
+  coord_flip() +
+  
+  labs(y = "Duration (minutes)",
+       
+       x = "Genre") 
+  
+ggplotly(p)
+
+```
+
+Ratings {data-icon="fa-thumbs-up"}
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Trend of Ratings Overtime
+
+```{r ratings overtime trend}
+
+p <- netflix %>% 
+  
+  filter(!is.na(rating)) %>% 
+  
+  mutate(rating = fct_lump_n(rating,5)) %>% 
+  
+  count(rating, decade, name = "count", sort = TRUE) %>% 
+
+  mutate(rating = fct_reorder(rating, count, sum, .desc = TRUE)) %>% 
+  
+  ggplot(aes(decade, count, color = rating))+
+  
+  geom_point()+
+  
+  geom_line() +
+  
+  scale_x_continuous(n.breaks = 15) 
+
+ggplotly(p)
+
+
+```
+
+### Ratings By Country
+
+```{r ratings by country}
+
+p <- summarize_by_count_and_percent(rating, country) %>% 
+
+  ggplot(aes(rating, pct, fill = country))+
+  
+  geom_col() +
+    
+  coord_flip() +
+  
+  scale_y_continuous(labels = percent)+
+  
+  #scale_fill_discrete(palette = "Spectral")+
+  
+  labs(y = "proportion of all releases")
+
+ggplotly(p)
+
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### Countries that have mature content (R/TV-MA)
+
+```{r countris by mature content}
+p <- netflix %>% 
+  
+  separate_rows(country, sep = ",") %>% 
+  
+  mutate(country=str_trim(country)) %>% 
+  
+  filter(!is.na(rating), !is.na(country)) %>%
+  
+  group_by(type, country = fct_lump(country, 10)) %>% 
+  
+  summarize(n_mature = sum(rating %in% c("R", "TV-MA", "NC-17")),
+            
+            n = n(),
+            
+            .groups = "drop"
+            
+            ) %>% 
+  
+  mutate(pct_mature = n_mature / n,
+         
+         conf_low = qbeta(0.025, n_mature + 0.5, n - n_mature + 0.5),
+         
+         conf_high = qbeta(0.975, n_mature + 0.5, n - n_mature + 0.5),
+         
+         ) %>% 
+  
+  ggplot(aes(pct_mature, country, color = type))+
+  
+  geom_point(aes(size = n)) +
+  
+  geom_errorbar(aes(xmin = conf_low, xmax =conf_high ), width = 0.5) +
+  
+  scale_x_continuous(labels = percent, n.breaks = 4) +
+  
+  labs(x = "% of releases that are Mature (R/TV-MA/NC-17 rated)",
+       
+       size = "No. of releases")
+
+ggplotly(p)
+
+```
+
+
+### Rating By Genre
+
+```{r ratings by genre}
+
+p <- summarize_by_count_and_percent(rating, listed_in) %>% 
+
+  ggplot(aes(rating, pct, fill = listed_in))+
+  
+  geom_col() +
+    
+  coord_flip() +
+  
+  scale_y_continuous(labels = percent)+
+  
+  #scale_fill_discrete(palette = "Spectral")+
+  
+  labs(y = "proportion of all releases",
+       
+       fill = "Genre")
+
+ggplotly(p)
+
+```
+
+
+
+Word Frequency {data-orientation=columns data-icon="fa-globe"}
+=======================================================================
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Frequency of words in title -Wordcloud
+
+```{r frequency of words in title - wordcloud}
+library(tidytext)
+library(wordcloud2)
+library(webshot)
+library(htmlwidgets)
+
+word_title_freq <- netflix %>% 
+  
+  unnest_tokens(word, title, drop = FALSE) %>% 
+  
+  anti_join(stop_words, by = "word") %>% 
+  
+  filter(str_length(word) >2) %>% 
+  
+  count(word) %>% 
+  
+  arrange(desc(n)) %>% 
+  
+  rename(freq = n) %>% 
+  
+  filter(freq > 1)
+  
+  #slice_max(n, n = 70)
+
+
+graph <- wordcloud2(word_title_freq, size=0.8, terrain.colors(length(word_title_freq$word)), shape = "circle", backgroundColor = "black")
+
+#webshot::install_phantomjs()
+
+# save it in html
+
+saveWidget(graph,"netflix_titles_wordcloud.html",selfcontained = F)
+
+# and in png or pdf
+webshot("netflix_titles_wordcloud.html","netflix_titles_wordcloud.png", delay =8, vwidth = 480, vheight=480)
+
+graph
+
+```
+![](netflix_titles_wordcloud.html)
+
+### Most Common words in titles for each type
+
+```{r most common words in description}
+library(snakecase)
+library(tidylo)
+
+words_unnested <- netflix %>%
+
+  unnest_tokens(word, description, drop = FALSE) %>%
+
+  anti_join(stop_words, by = "word") %>%
+
+  filter(str_length(word) >2)
+
+
+p <- words_unnested %>%
+
+  count(type, word) %>%
+
+  bind_log_odds(type, word, n) %>%
+
+  arrange(desc(log_odds_weighted)) %>%
+
+  group_by(type) %>%
+
+  slice_max(log_odds_weighted, n=15) %>%
+
+  ungroup() %>%
+
+  mutate(word = fct_reorder(word, log_odds_weighted)) %>%
+
+  ggplot(aes(log_odds_weighted, word, fill = type)) +
+
+  geom_col() +
+
+  scale_x_continuous(expand = c(0,0))+
+
+  theme(legend.position = "none")+
+
+  facet_wrap(~type, scales = "free_y") +
+
+  labs(x = "Log odds ratio, weighted by uninformative Dirichlet prior")
+
+ggplotly(p)
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Cluster of words that tend to appear together in movie/tv description
+
+```{r clustering of words}
+
+library(widyr)
+library(tidygraph)
+library(ggraph)
+
+words_unnested <- netflix %>% 
+  
+  unnest_tokens(word, description, drop = FALSE) %>% 
+  
+  anti_join(stop_words, by = "word") %>% 
+  
+  filter(str_length(word) >2)
+  
+  
+words_unnested %>% 
+  
+  distinct(type, title, word ) %>% 
+  
+  add_count(word, name = "word_total") %>% 
+  
+  arrange(desc(word_total)) %>% 
+  
+  filter(word_total >=40) %>% 
+  
+  pairwise_cor(word, title, sort = TRUE) %>% 
+  
+  filter(correlation > 0.1) %>% 
+  
+  igraph::graph_from_data_frame() %>% 
+  
+  #ggraph(layout = "igraph", algorithm = 'kk') +
+  
+  ggraph(layout = "fr")+
+  
+  geom_edge_link(aes(alpha = correlation)) +
+  
+  geom_node_point(col = "red") +
+  
+  #geom_node_text(aes(label = name), hjust = 1, vjust =1 , check_overlap = TRUE)
+
+  geom_node_text(aes(label = name), repel = TRUE) +
+  
+  theme(legend.position = "none")+
+  
+  scale_color_brewer(palette = "Set1") +
+  
+  scale_fill_brewer(palette = "Set1")
+
+```
+
+
+
