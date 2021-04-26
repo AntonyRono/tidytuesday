@@ -123,7 +123,7 @@ valueBox(value = comma(nrow(data)), caption = "Total Releases", icon = "fa-user-
 
 ```
 
-### Number of Countries Produced
+### Number of Countries That Have Been Shot In
 
 ```{r number of countries}
 
