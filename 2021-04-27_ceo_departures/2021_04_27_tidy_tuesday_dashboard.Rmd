@@ -1,0 +1,354 @@
+---
+title: "CEO Departures from S&P 1500 Firms, 1980-2021"
+author: "Antony Rono"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    source_code: embed
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+library(flexdashboard)
+library(tidyverse)
+library(tidytuesdayR)
+library(janitor)
+library(magrittr)
+library(plotly)
+library(readxl)
+library(ggridges)
+library(extrafont)
+library(scales)
+
+theme_set(theme_light())
+
+options(scipen = 99)
+```
+
+```{r Loading Data, include=FALSE}
+
+#tt <- tt_load("2021-04-27")
+
+departures <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-04-27/departures.csv')
+
+dep_code <- read_xlsx("CEO Departure Code.xlsx")  ## Departure Codes and Title
+
+departures %<>% 
+  
+  mutate(dismissal_type = case_when(
+    
+    ceo_dismissal == 0 ~ "Involuntary",
+    
+    ceo_dismissal == 1 ~ "Voluntary",
+    
+    TRUE ~ "Uknown"
+    
+  ),
+  
+  departure_reason = dep_code$Title[match(departure_code, dep_code$Code)],
+  
+  departure_reason = ifelse(is.na(departure_reason) | str_detect(departure_reason,"Execucomp error") | str_detect(departure_reason,"Missing") , "Uknown", departure_reason))
+
+
+```
+
+Overall {data-icon="fa-chart-line"}
+=======================================================================
+
+Row {data-height=200}
+-----------------------------------------------------------------------
+
+### Number of Companies
+```{r number of companies}
+
+valueBox(value = comma(departures %>%  distinct(coname) %>% nrow), caption = "Number of Companies", icon = "fa-industry", color = "green")
+
+```
+
+### Number of Dismissals
+```{r number of dismissals}
+
+valueBox(value = comma(departures %>%  nrow), caption = "Number of Dismissals", icon = "fa-times", color = "red")
+
+```
+
+### Breakdown of the Type of Dismissal
+
+```{r Type of Dismissal Overall}
+
+departures %>% 
+  
+  count(dismissal_type) %>% 
+  
+  plot_ly(labels = ~ dismissal_type, values = ~ n) %>% 
+  
+  add_pie(hole = 0.6)
+
+
+```
+
+Row {data-height=400}
+-----------------------------------------------------------------------
+
+### Overall Breakdown by Reason for Departure
+
+```{r Breakdown of all departures Overall}
+
+p <- departures %>% 
+  
+  count(departure_reason) %>% 
+  
+  mutate(departure_reason = str_wrap(departure_reason, width = 14)) %>% 
+  
+  filter(!is.na(departure_reason)) %>% 
+  
+  mutate(departure_reason = fct_reorder(departure_reason, n, .desc = TRUE)) %>% 
+  
+  ggplot(aes(departure_reason, n, fill = departure_reason)) +
+
+  geom_col()+
+
+  theme(legend.position =  "none") +
+
+
+    labs(x = "Reason for Dismissal",
+         
+         y = "Count"
+
+         )
+
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+Row {data-height=400}
+-----------------------------------------------------------------------
+
+### Yearly Trend of the Number and Type of Dismissal
+
+```{r Yearly Trend on the Number and Type of Dismissal}
+
+p <- departures %>% 
+    
+  count(fyear, dismissal_type) %>% 
+    
+  ggplot(aes(fyear, n, color = dismissal_type))+
+    
+  geom_point() +
+    
+  geom_line() +
+    
+  scale_x_continuous(expand = c(0,0), n.breaks = 10) +
+  
+  labs(x = "Financial Year",
+       
+       y = "Number of Dismissal") +
+  
+  theme(legend.title = element_blank())
+
+ggplotly(p)
+
+
+```
+
+### Yearly Trend of the Number and Reason for Dismissal
+
+```{r Yearly Trend of the Number and Reason for Dismissal}
+
+p <- departures %>% 
+    
+  count(fyear, departure_reason) %>% 
+    
+  ggplot(aes(fyear, n, color = departure_reason))+
+    
+  geom_point() +
+    
+  geom_line() +
+    
+  scale_x_continuous(expand = c(0,0), n.breaks = 10) +
+  
+  labs(x = "Financial Year",
+       
+       y = "Reason for Departure") +
+  
+  theme(legend.title = element_blank()) 
+
+ggplotly(p)
+
+
+```
+
+
+
+Companies and CEOs{data-orientation=columns data-icon="fa-location-arrow"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Companies with the most CEO Change - Breakdown by Type of Dismissal
+
+```{r Companies With Most CEOs Switch - Breakdown by Type of Dismissal}
+
+p <- departures %>% 
+  
+  distinct(coname, exec_fullname, .keep_all = TRUE) %>% 
+  
+  count(coname, dismissal_type, sort = TRUE) %>% 
+  
+  ungroup() %>% 
+  
+  group_by(coname) %>% 
+  
+  mutate(Total = sum(n)) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(coname = fct_reorder(coname, Total, sum)) %>% 
+  
+  slice_max(Total, n=40) %>% 
+  
+  ggplot(aes(n, coname,fill = dismissal_type))+
+  
+  geom_col() +
+  
+  scale_x_continuous(expand = c(0,0)) +
+  
+  labs(y = "Company Name",
+       
+       x = "Count")
+
+
+ggplotly(p, tooltip = c("y", "fill", "x"))
+
+```
+
+
+### Companies with the most CEO Change - Breakdown by Reason for Departure
+
+```{r Companies with the most CEO Change - Breakdown by Reason for Departure}
+
+p <- departures %>% 
+  
+  distinct(coname, exec_fullname, .keep_all = TRUE) %>% 
+  
+  count(coname,departure_reason, sort = TRUE) %>% 
+  
+  ungroup() %>% 
+  
+  group_by(coname) %>% 
+  
+  mutate(Total = sum(n)) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(coname = fct_reorder(coname, Total, sum)) %>% 
+  
+  slice_max(Total, n=40) %>% 
+  
+  ggplot(aes(n, coname,fill = departure_reason))+
+  
+  geom_col() +
+  
+  scale_x_continuous(expand = c(0,0)) +
+  
+  labs(y = "Company Name",
+       
+       x = "Count")
+
+ggplotly(p, tooltip = c("y", "fill", "x"))
+
+```
+
+
+Column{.tabset}
+-----------------------------------------------------------------------
+
+### CEOs with the most dismissals - Breakdown by Type of Dismissal
+
+```{r CEOs with the most dismissal - breakdown by type of dismissal}
+
+p <- departures %>% 
+  
+  distinct(coname, exec_fullname, .keep_all = TRUE) %>% 
+  
+  count(exec_fullname, dismissal_type, sort = TRUE) %>% 
+  
+  ungroup() %>% 
+  
+  group_by(exec_fullname) %>% 
+  
+  mutate(Total = sum(n)) %>% 
+  
+  ungroup() %>% 
+  
+    arrange(desc(Total)) %>% 
+  
+  mutate(exec_fullname = fct_reorder(exec_fullname, Total, .desc = FALSE)) %>% 
+  
+  slice_max(Total, n=5) %>% 
+  
+  ggplot(aes(n, exec_fullname,fill = dismissal_type))+
+  
+  geom_col() +
+  
+  scale_x_continuous(expand = c(0,0)) +
+  
+  labs(y = "CEO Name",
+       
+       x = "Count") +
+  
+  theme(legend.title = element_blank())
+
+
+ggplotly(p, tooltip = c("y", "fill", "x"))
+
+
+```
+
+### CEOs with the most dismissals - Breakdown by Reason for Departure
+
+```{r CEOs with the most dismissal - breakdown by reason for departure}
+
+p <- departures %>% 
+  
+  distinct(coname, exec_fullname, .keep_all = TRUE) %>% 
+  
+  count(exec_fullname, departure_reason, sort = TRUE) %>% 
+  
+  ungroup() %>% 
+  
+  group_by(exec_fullname) %>% 
+  
+  mutate(Total = sum(n)) %>% 
+  
+  ungroup() %>% 
+  
+    arrange(desc(Total)) %>% 
+  
+  mutate(exec_fullname = fct_reorder(exec_fullname, Total, .desc = FALSE)) %>% 
+  
+  slice_max(Total, n=15) %>% 
+  
+  ggplot(aes(n, exec_fullname,fill = departure_reason))+
+  
+  geom_col() +
+  
+  scale_x_continuous(expand = c(0,0)) +
+  
+  labs(y = "CEO Name",
+       
+       x = "Count") +
+  
+  theme(legend.title = element_blank())
+
+
+ggplotly(p, tooltip = c("y", "fill", "x"))
+
+```
+

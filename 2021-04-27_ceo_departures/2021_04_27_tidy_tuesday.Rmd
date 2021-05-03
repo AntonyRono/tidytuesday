@@ -1,0 +1,129 @@
+---
+title: "CEO Departures"
+author: "Antony Rono"
+date: 2021-04-27
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(magrittr)
+library(readxl)
+library(ggridges)
+library(extrafont)
+
+theme_set(theme_light())
+
+options(scipen = 99)
+
+```
+
+# Load the weekly Data
+
+```{r Load}
+
+tt <- tt_load("2021-04-27")
+
+departures <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-04-27/departures.csv')
+
+dep_code <- read_xlsx("2021-04-27_ceo_departures/CEO Departure Code.xlsx")  ## Departure Codes and Title
+
+```
+
+
+```{r data wrangling}
+
+## Adding Reason for Departure Text
+
+departures %<>% 
+  
+  mutate(dismissal_type = case_when(
+    
+    ceo_dismissal == 0 ~ "Involuntary",
+    
+    ceo_dismissal == 1 ~ "Voluntary",
+    
+    TRUE ~ "Uknown"
+    
+  ),
+  
+  departure_reason = dep_code$Title[match(departure_code, dep_code$Code)],
+  
+  departure_reason = ifelse(is.na(departure_reason) | str_detect(departure_reason,"Execucomp error") | str_detect(departure_reason,"Missing") , "Uknown", departure_reason))
+
+
+## Breakdown of departures by reason and year 
+
+departures %<>% 
+  
+  count(fyear,  departure_reason, sort = TRUE) %>% 
+  
+  mutate(departure_reason = fct_reorder(departure_reason, n, .desc = FALSE)) 
+
+```
+
+```{r Plot}
+
+departures %>% 
+  
+  filter(departure_reason != "Uknown") %>% 
+  
+  ggplot(aes(x = fyear))+
+  
+  geom_density_ridges_gradient( aes (y = departure_reason, height = n, fill = departure_reason, color = departure_reason),
+                                
+                                stat = "identity",
+                                
+                                scale = 1.2,
+                                
+                                alpha = 0.6) +
+  
+  scale_x_continuous(expand = c(0, 1)) +
+  
+  coord_cartesian(clip = "off") + 
+  
+  theme_ridges(grid = FALSE, center_axis_labels = TRUE)+
+  
+  theme(legend.position =  "none",
+        
+        plot.background = element_rect(fill = "#333333", color = NA),
+        
+        axis.text = element_text(color = "#FFFFFF", face = "bold"),
+        
+        axis.title.x=element_blank(),
+        
+        axis.title.y=element_blank(),
+        
+        axis.ticks.x = element_line( color = "#FFFF00",
+                                    size = 0.2),
+        plot.title.position = "plot",
+        
+        plot.title = element_text(size = 16, color = "#00ccff", hjust = 1 ),
+        
+        plot.caption = element_text(color = "#CCCCCC", size = 10)
+        
+        
+        ) +
+  
+  labs(title = "Reasons for CEO Departures from S&P 1500 Firms, 1980-2021",
+       
+       caption = "Source: Gentry et al. by way of DataIsPlural | Viz: Antony Rono")
+  
+
+```
+
+
+```{r Saving Image}
+ggsave(
+  filename = "./plots/ceo_departures.png",
+  device = "png")
+
+```
