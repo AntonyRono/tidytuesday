@@ -1,6 +1,12 @@
 # tidytuesday
 Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/rfordatascience/tidytuesday), a weekly data project on understanding how to analyze data to make meaningful and/or beautiful chart using R.
 
+
+---
+### 2021-05-04 🌐 Water Access Points [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_05_04_water_acess_points/2021_05_04_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_05_04_tidy_tuesday_dashboard.html)
+
+![./plots/kenya_census.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/water_access_points.png)
+---
 ---
 ### 2021-04-27 🌐 CEO Departures [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021-04-27_ceo_departures/2021_04_27_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_04_27_tidy_tuesday_dashboard.html)
 

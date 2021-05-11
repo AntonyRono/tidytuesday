@@ -1,0 +1,434 @@
+---
+title: "Water Sources in Africa"
+author: "Antony Rono"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+
+library(flexdashboard)
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(lubridate)
+library(magrittr)
+library(plotly)
+library(ggthemes)
+library(ggmap)
+library(gganimate)
+library(highcharter)
+library(maps)
+library(ggraph)
+
+theme_set(theme_light())
+```
+
+```{r Load Data, include=FALSE}
+
+data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-04/water.csv')
+
+```
+
+```{r Clean data, include=FALSE}
+
+water <- data %>% 
+  
+  mutate(report_date = mdy(report_date),
+         
+         install_year = ifelse(install_year > year(today()), NA_real_, install_year),
+         
+         status_id = case_when(
+           
+           status_id == "y" ~ "Working",
+           
+           status_id == "n" ~ "Not Working",
+           
+           status_id == "u" ~ "Unknown"
+           
+         )
+         
+         ) %>% 
+  
+  separate(water_tech, into = c("water_tech", "brand"), sep = " - ", fill = "right")
+
+
+## Retaining African Countries
+
+countries <- get_data_from_map(download_map_data("https://code.highcharts.com/mapdata/custom/africa.js"))
+
+water %<>% 
+  
+    mutate(country_name = case_when(
+    
+    country_name == "Congo - Kinshasa" ~ "Democratic Republic of the Congo",
+    
+    country_name == "Congo - Brazzaville" ~  "Republic of Congo",
+    
+    country_name == "Tanzania" ~ "United Republic of Tanzania",
+    
+    TRUE ~ country_name
+    )
+    ) %>% 
+  
+  filter(country_name %in% countries$name)
+  
+
+```
+
+```{r Function for breakdown by category, include=FALSE}
+
+bar_chart_by_category <- function(x){
+  
+  water %>% 
+    
+  filter(!is.na({{x}})) %>% 
+  
+  mutate({{x}} := fct_lump_n({{x}}, 20)) %>% 
+  
+  count({{x}}, sort = TRUE, name = "count") %>% 
+  
+  mutate({{x}} := fct_reorder({{x}}, count)) %>% 
+  
+  filter(count > 0, !is.na({{x}})) %>% 
+  
+  ggplot(aes(count, {{x}}, fill = {{x}})) +
+  
+  geom_col() +
+  
+  scale_x_continuous(expand = c(0,0), labels = comma)+
+  
+  theme(legend.position = "none")
+  
+}
+
+```
+Overall {data-icon="fa-chart-pie"}
+=======================================================================
+
+Row {data-height=250}
+-----------------------------------------------------------------------
+
+### Total Rater Source Records
+
+```{r count of released}
+
+valueBox(value = comma(nrow(water)), caption = "Total Water Source Records", icon = "fa-user-tint", color = "green")
+
+```
+
+
+### Status of the water sources
+
+```{r water status}
+
+water %>% 
+  
+  count(status_id) %>% 
+  
+  plot_ly(labels = ~ status_id, values = ~ n) %>% 
+  
+  add_pie(hole = 0.6)
+
+
+```
+
+### Facility Type of the water sources
+
+```{r water facility type}
+
+water %>% 
+  
+  mutate(facility_type = ifelse(is.na(facility_type), "Unknown", facility_type)) %>% 
+  
+  count(facility_type) %>% 
+  
+  plot_ly(labels = ~ facility_type, values = ~ n) %>% 
+  
+  add_pie(hole = 0.6)
+
+
+```
+
+Row {data-height=750}
+-----------------------------------------------------------------------
+
+### Water Sources by Country
+
+```{r Map of country by water sources}
+
+water_countries <- water %>% 
+  
+  filter(!is.na(country_name)) %>% 
+  
+  mutate(country_name = case_when(
+    
+    str_detect(country_name, "Tanzania") ~ "Tanzania, United Republic of",
+    
+    TRUE ~ country_name
+    
+  )) %>% 
+  
+   mutate(`iso-a3`= coalesce(iso3166$a3[match(country_name,iso3166$ISOname)], 
+                             
+                             iso3166$a3[match(country_name ,iso3166$sovereignty)])) 
+
+hcmap(
+  
+   map = "custom/africa", # high resolution world map
+  
+   data = water_countries %>% count(`iso-a3`), # name of dataset
+  
+   joinBy = "iso-a3",
+  
+   value = "n",
+  
+   showInLegend = FALSE, # hide legend
+  
+   nullColor = "#FFFFFF",
+  
+   download_map_data = TRUE,
+   
+   dataLabels = list(enabled = TRUE, format = '{point.name}')
+
+   ) %>% 
+  
+  hc_colorAxis(minColor = "#FFFFCC", maxColor = "red") %>% 
+   
+    hc_mapNavigation(enabled = FALSE) %>%
+  
+   hc_legend("none") #%>%
+  
+   #hc_title(text = "Production By Country") # title
+ 
+
+```
+
+### Water Sources by Country and Type
+
+```{r Breakdown by Country and Water Sources}
+
+p <- water %>% 
+  
+  count(country_name, water_source, sort = TRUE, name = "count") %>% 
+  
+  group_by(country_name) %>% 
+  
+  mutate(total = sum(count, na.rm = TRUE)) %>% 
+  
+    ungroup() %>% 
+  
+  mutate(country_name = fct_reorder(country_name, total)) %>% 
+
+  filter(count > 0, !is.na(country_name)) %>% 
+  
+  ggplot(aes(count, country_name, fill = water_source)) +
+  
+  geom_col() +
+  
+  scale_x_continuous(expand = c(0,0), labels = comma)+
+  
+  theme(legend.position = "right")
+
+ggplotly(p)
+
+```
+
+Breakdowns and Trends {data-icon="fa-chart-line"}
+=======================================================================
+
+Row {data-height=650}
+-----------------------------------------------------------------------
+
+### Distribution of Water Sources
+
+```{r Records by water source}
+
+ggplotly(bar_chart_by_category(water_source))
+
+
+```
+
+### Distribution of Water Tech
+
+```{r Water Records by Tech}
+
+ggplotly(bar_chart_by_category(water_tech))
+
+```
+
+### Distribution of Water Source Installers
+
+```{r Records by Installer}
+
+ggplotly(bar_chart_by_category(installer))
+
+
+```
+
+Row {data-height=350}
+-----------------------------------------------------------------------
+
+### Trend of Water Source Installations
+
+```{r Trend of water source install year}
+
+p <- water %>% 
+  
+  count(install_year, water_source, name = "count") %>% 
+  
+  group_by(install_year) %>% 
+  
+  mutate(total = sum(count)) %>% 
+  
+  filter(!is.na(install_year), install_year > 1970, !is.na(water_source)) %>% 
+  
+  ggplot(aes(install_year, count, color = water_source, text = water_source)) +
+  
+  geom_point() +
+  
+  geom_line() +
+  
+  geom_point(aes(install_year, total, color = "Total",text = "Total"), color = "brown",inherit.aes = FALSE)+
+  
+  geom_line(aes(install_year, total, color = "Total",text = "Total"),color = "brown", inherit.aes = FALSE)+
+  
+  scale_y_continuous( labels = comma)+
+  
+  theme(legend.position = "bottom") 
+
+ggplotly(p, tooltip = c("x","y", "text"))
+
+```
+
+
+Relationships {data-orientation=columns data-icon="fa-chart-bar"}
+=======================================================================
+
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Water Tech Vs Water Sources - Network Graph
+
+```{r Most common tech by Waster source - Network Graph}
+
+library(widyr)
+library(igraph)
+library(threejs)
+
+
+tech_source_edges <- water %>% 
+  
+  count(water_source, water_tech, sort = TRUE, name = "count") %>% 
+  
+  filter(!is.na(water_source), !is.na(water_tech)) %>% 
+  
+  rename(to = water_tech,
+         
+         from = water_source) %>% 
+  
+  filter(count > 1)
+
+
+tech_source_vertices <- tech_source_edges %>% 
+  
+  select(-count) %>% 
+  
+  pivot_longer(to:from, values_to = "text") %>% 
+  
+  distinct(text) %>% 
+  
+  mutate(type = ifelse(text %in% tech_source_edges$from, "water source", "water_tech"),
+         
+         type = as.factor(type)) 
+  
+
+
+g <- graph_from_data_frame(d = tech_source_edges, directed = FALSE, vertices = tech_source_vertices)
+
+V(g)$color = ifelse(V(g)$type == "water source", "orange", "dodgerblue")
+
+plot(g, 
+     
+     layout = layout_nicely(g),
+     
+     vertex.label.color = "black",
+     
+     vertex.size = 20*eigen_centrality(g)$vector,
+     
+     vertex.label.cex = 0.5,
+     
+     )
+
+
+
+# graphjs(g,
+#         
+#         layout = layout_randomly(g, dim = 3),
+#       #vertex.size = 25*eigen_centrality(g)$vector,
+#      
+#       vertex.label = "x",
+#       
+#      vertex.label.cex = 0.8
+#         
+#         )
+# 
+# 
+
+
+```
+
+### Water Tech Vs Water Sources - Baloon Chart
+
+```{r Most common tech by Water source - Baloon chart}
+
+library(ggpubr)
+
+tech_source_edges %>% 
+  
+  pivot_wider( names_from = from, values_from = count, values_fill  =0) %>% 
+  
+  column_to_rownames(var="to") %>% 
+  
+  ggballoonplot(., fill = "value") +
+  
+  scale_fill_viridis_c(option = "C") +
+  
+  coord_flip()
+
+# tech_source_edges %>%
+# 
+#   ggballoonplot(x = "to", y = "from", size = "count", fill = "count") +
+# 
+#   scale_fill_viridis_c(option = "C")
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Install Date Vs Report Date
+
+```{r Relationship between Report Date and Installed Date}
+
+water %>% 
+  
+  mutate(year = year(report_date)) %>% 
+  
+  filter(!is.na(install_year), install_year > 1900, year(report_date) > 1999) %>% 
+  
+  ggplot(aes(report_date, install_year)) +
+  
+  geom_point() +
+  
+  coord_flip()
+
+
+```
+
