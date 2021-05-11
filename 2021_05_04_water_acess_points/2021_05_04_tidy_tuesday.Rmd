@@ -222,7 +222,7 @@ ggdraw()+
   
   draw_plot(overall_map, x = .4, y = .55, width = .4, height = .4, hjust = 0.25) +
   
-  annotate("curve", x = 0.26, xend = 0.4, y = 0.75, yend = 0.7, size=1,
+  annotate("curve", x = 0.26, xend = 0.4, y = 0.77, yend = 0.7, size=1,
            
            color = "#3399FF", curvature = 0.2) +
   
@@ -234,13 +234,13 @@ ggdraw()+
   
       draw_text(family = "Bodoni MT",x = .82, y = 0.75,
             
-            text = "Uganda has the highest number of water access points in Africa.\nThese are mostly concentrated in the eastern and south-western\nparts of the country",
+            text = "Uganda has the highest number of water access points in Africa.\nThese are mostly concentrated on the eastern and south-western\nparts of the country",
             
             color = "black", fontface = "bold", size = 9) +
   
     draw_text(family = "Bodoni MT",x = .82, y = 0.65,
             
-            text = "Boreholes are the most common sources, roughy spread out\nacross the country but with a higher concentration in the\n northern part ofLake Victoria.",
+            text = "Boreholes are the most common sources, roughy spread out\nacross the country but with a higher concentration on the\n northern part of Lake Victoria.",
             
             color = "black", fontface = "bold", size = 9) +
 
@@ -257,12 +257,12 @@ ggdraw()+
     
     plot.caption = element_text(color = "#CCCCCC", size = 10)
     
-  ) +
+  )
   
     
 ```
 
-## Not Included -Animated Map
+## Not Included - Animated Map
 
 ```{r Animated Map}
 
