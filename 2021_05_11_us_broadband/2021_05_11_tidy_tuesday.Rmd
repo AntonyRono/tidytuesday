@@ -262,7 +262,6 @@ quantile(counties_sf_simplified$broadband_usage, 0.25, na.rm = TRUE)
 ```{r Combining Plots}
 library(cowplot)
 
-
 ggdraw() +
   
   draw_plot(overall_availability, x = 0, y = .5, width = 1, height = .5, hjust = 0.15) +
@@ -288,10 +287,11 @@ ggdraw() +
     
     plot.background = element_rect(fill = "grey97", color = NA)
     
-  )
+  ) +
+  
+  draw_text(text = "Source: Microsoft by way of The Verge. | Viz: Antony Rono", x = 1, y = 0.01,size = 8, vjust = 0, hjust = 1.05,color = "grey37")
   
 
-median(counties_sf_simplified$broadband_usage, na.rm = TRUE) 
 
 
 ```
