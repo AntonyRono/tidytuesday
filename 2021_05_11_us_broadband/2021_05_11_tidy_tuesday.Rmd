@@ -1,0 +1,306 @@
+---
+title: "US Broadband"
+author: "Antony Rono"
+date: 2021-05-11
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(extrafont)
+library(zipcodeR)
+library(janitor)
+library(magrittr)
+library(plotly)
+library(tigris)
+library(ggthemes)
+library(sf)
+
+options(tigris_use_cache = TRUE)
+options(scipen = 99)
+theme_set(theme_light())
+
+```
+
+# Load Data
+
+```{r Load, include=FALSE}
+
+tt <- tt_load("2021-05-11")
+
+broadband <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-11/broadband.csv')
+
+broadband_zip <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-11/broadband_zip.csv')
+
+
+```
+
+# Data Wrangling
+
+### County Dataset
+
+```{r Cleaning Data, include=FALSE}
+
+broadband_county <- broadband %>% 
+  
+  clean_names() %>% 
+  
+  mutate(state = state.name[match(st, state.abb)],
+         
+         state = ifelse(st == "DC", "District of Columbia", state),
+         
+         broadband_availability_per_fcc = parse_number(broadband_availability_per_fcc, na = "-"),
+         
+         broadband_usage = parse_number(broadband_usage, na = "-"),
+         
+         county_id = sprintf("%05d", county_id)
+         
+         ) %>% 
+  
+  mutate_at(c("county_name", "state"), str_trim)
+
+skimr::skim(broadband)
+  
+
+```
+
+```{r Adding County Population to broadband df, include=FALSE}
+
+library(readxl)
+
+population <- read_xlsx("2021_05_11_us_broadband/US Population By County.xlsx", skip = 3)
+
+population %<>% 
+  
+  rename(county_name = ...1) %>% 
+  
+  clean_names() %>% 
+  
+  filter(!is.na(census)) %>% 
+  
+  mutate(county_name = str_remove(county_name, "^[.]")) %>% 
+  
+  separate(county_name, c("county_name", "state"), sep = ",") %>% 
+  
+  mutate_at(c("county_name", "state"), str_trim) %>% 
+  
+  select(county_name, state, population_2017 = x2017, population_2019 = x2019) %>% 
+  
+  mutate(county_name = case_when(
+    
+    county_name == "Petersburg Borough" ~ "Petersburg Census Area",
+    
+    county_name == "Oglala Lakota County" ~ "Oglala County",
+    
+    TRUE ~ county_name
+    
+    
+  ))
+  
+
+
+broadband_with_population <- broadband_county %>% 
+  
+  inner_join(population, by = c("county_name", "state")) %>% 
+  
+  mutate(county_state = paste0(str_remove(county_name, " County"),", ", state))
+  
+  
+```
+
+# Charts
+
+### Broadband Availability per County
+
+```{r Overall Availability }
+
+#zip_code_shapes <- zctas(year = 2019)
+
+counties_sf <- counties()
+
+counties_sf_simplified <- counties_sf %>% 
+  
+  st_simplify(dTolerance = .02) 
+  
+
+counties_sf_simplified %<>% 
+  
+  inner_join(broadband_with_population, by = c(GEOID = "county_id")) %>% 
+  
+  filter(!state %in% c("Alaska", "Hawaii")) 
+
+
+overall_availability <- counties_sf_simplified %>% 
+  
+  ggplot(aes(fill = broadband_availability_per_fcc)) +
+  
+  geom_sf(size = .05)  +
+  
+  scale_fill_gradient2(labels = percent, low = "red", high = "blue", midpoint =median(counties_sf_simplified$broadband_availability_per_fcc, na.rm = TRUE) ) +
+  
+  theme_map() +
+  
+  coord_sf() +
+  
+    theme(legend.position = "bottom",
+          
+          legend.direction = "horizontal",
+          
+          legend.text = element_text(size = 8),
+          
+          legend.title = element_text(size = 8),
+          
+          legend.key.height = unit(0.6, "line"),
+          
+          legend.key.size = unit(0.5, "cm"),
+          
+          plot.title = element_text(size=12)
+        ) +
+  
+  guides(fill = guide_legend(title.position="top", title.hjust = 0.5)) +
+
+  labs(fill = "Broadband Availability (%)",
+       
+       title = "US Broadband Availability")
+  
+
+```
+
+### Usage per County
+
+```{r Overall Usage}
+
+overall_usage <- counties_sf_simplified %>% 
+  
+  ggplot(aes(fill = broadband_usage)) +
+  
+  geom_sf(size = .05)  +
+  
+  scale_fill_gradient2(labels = percent, low = "red", high = "blue", midpoint =median(broadband_with_population$broadband_usage, na.rm = TRUE) ) +
+  
+  theme_map() +
+  
+  coord_sf() +
+  
+    theme(legend.position = "bottom",
+          
+          legend.direction = "horizontal",
+          
+          legend.text = element_text(size = 8),
+          
+          legend.title = element_text(size = 8),
+          
+          legend.key.height = unit(0.5, "line"),
+          
+          legend.key.size = unit(0.5, "cm"),
+          
+          plot.title = element_text(size=12)
+        ) +
+  
+  guides(fill = guide_legend(title.position="top", title.hjust = 0.5)) +
+  
+  labs(fill = "Broadband Usage (%)",
+       
+       title = "US Broadband Usage")
+  
+
+
+```
+
+
+### Low Usage Counties
+
+```{r Map of Counties with Low}
+
+low_usage <- counties_sf_simplified %>% 
+  
+  ggplot(aes(fill = broadband_usage <= quantile(broadband_usage, 0.25, na.rm = TRUE))) +
+  
+  geom_sf(size = .05)  +
+  
+  scale_fill_manual(values = c("gray", "blue"), labels = c( ">= 25th quantile (13%)", "< 25th quantile (13%)"))+
+  
+  theme_map() +
+  
+  coord_sf() +
+  
+    theme(legend.position = "bottom",
+          
+          legend.text = element_text(size = 8),
+          
+          legend.title = element_text(size = 8),
+          
+          legend.key.size = unit(0.3, "cm"),
+          
+          legend.background = element_rect(fill = "grey97",
+                                         linetype = "blank"),
+          
+          plot.title = element_text(size=12)
+        ) +
+  
+  labs(fill = "Broadband Usage (%)",
+       
+       title = "Low Usage Counties")+
+  
+  guides(fill = guide_legend(title.position="top", title.hjust = 0.5)) 
+  
+quantile(counties_sf_simplified$broadband_usage, 0.25, na.rm = TRUE)
+
+
+
+```
+
+### Combining the Plots
+
+```{r Combining Plots}
+library(cowplot)
+
+
+ggdraw() +
+  
+  draw_plot(overall_availability, x = 0, y = .5, width = 1, height = .5, hjust = 0.15) +
+  
+  draw_plot(low_usage, x = 0.5, y = 0, width = .5, height = .5, vjust = 0) +
+  
+  draw_plot(overall_usage, x = 0, y = 0, width = .5, height = .5, vjust = 0) +
+  
+    draw_text(family = "Perpetua",x = .78, y = 0.75,
+             
+            text = "Households in more than 98% of the counties\nare connected to broadband of at least\n25Mpbs/5Mbps speed."
+            , color = "black", size = 12
+            
+             ) +
+  
+  draw_text(family = "Perpetua",x = .78, y = 0.6, size = 12,
+    
+    text = "The median broadband usage in the country\nis 24% per county, with at least 13% of people\nactively using broadband in 75% of the counties."
+  )+
+  
+  
+  theme(
+    
+    plot.background = element_rect(fill = "grey97", color = NA)
+    
+  )
+  
+
+median(counties_sf_simplified$broadband_usage, na.rm = TRUE) 
+
+
+```
+
+# Saving Image
+
+```{r save image}
+ggsave(
+  filename = "./plots/us_broadband.png",
+  device = "png")
+
+```

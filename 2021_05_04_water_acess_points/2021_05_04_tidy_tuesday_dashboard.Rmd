@@ -1,10 +1,11 @@
 ---
-title: "Water Sources in Africa"
+title: "Water Access Points in Africa"
 author: "Antony Rono"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
+    source_code: embed
 editor_options: 
   chunk_output_type: console
 ---
@@ -114,16 +115,16 @@ Overall {data-icon="fa-chart-pie"}
 Row {data-height=250}
 -----------------------------------------------------------------------
 
-### Total Rater Source Records
+### Total Water Access Points
 
 ```{r count of released}
 
-valueBox(value = comma(nrow(water)), caption = "Total Water Source Records", icon = "fa-user-tint", color = "green")
+valueBox(value = comma(nrow(water)), caption = "Total Water Acess Points Records", icon = "fa-user-tint", color = "green")
 
 ```
 
 
-### Status of the water sources
+### Status of the Water Access Points
 
 ```{r water status}
 
@@ -138,7 +139,7 @@ water %>%
 
 ```
 
-### Facility Type of the water sources
+### Facility Type of the Water Access Points
 
 ```{r water facility type}
 
@@ -158,9 +159,9 @@ water %>%
 Row {data-height=750}
 -----------------------------------------------------------------------
 
-### Water Sources by Country
+### Water Access Points by Country
 
-```{r Map of country by water sources}
+```{r Map of country by Water Acess Pointss}
 
 water_countries <- water %>% 
   
@@ -209,9 +210,9 @@ hcmap(
 
 ```
 
-### Water Sources by Country and Type
+### Water Access Points by Country and Type
 
-```{r Breakdown by Country and Water Sources}
+```{r Breakdown by Country and Water Acess Pointss}
 
 p <- water %>% 
   
@@ -245,16 +246,16 @@ Breakdowns and Trends {data-icon="fa-chart-line"}
 Row {data-height=650}
 -----------------------------------------------------------------------
 
-### Distribution of Water Sources
+### Distribution of Water Access Points
 
-```{r Records by water source}
+```{r Records by Water Acess Points}
 
 ggplotly(bar_chart_by_category(water_source))
 
 
 ```
 
-### Distribution of Water Tech
+### Distribution of Technologies Used in the Access Points
 
 ```{r Water Records by Tech}
 
@@ -262,7 +263,7 @@ ggplotly(bar_chart_by_category(water_tech))
 
 ```
 
-### Distribution of Water Source Installers
+### Distribution of Water Access Points Installers
 
 ```{r Records by Installer}
 
@@ -274,9 +275,9 @@ ggplotly(bar_chart_by_category(installer))
 Row {data-height=350}
 -----------------------------------------------------------------------
 
-### Trend of Water Source Installations
+### Trend of Water Access Points Installations
 
-```{r Trend of water source install year}
+```{r Trend of Water Acess Points install year}
 
 p <- water %>% 
   
@@ -314,14 +315,11 @@ Relationships {data-orientation=columns data-icon="fa-chart-bar"}
 Column {.tabset}
 -----------------------------------------------------------------------
 
-### Water Tech Vs Water Sources - Network Graph
+### Water Tech Vs Water Access Points - Baloon Chart
 
-```{r Most common tech by Waster source - Network Graph}
+```{r Most common tech by Water Acess Points - Baloon chart}
 
-library(widyr)
-library(igraph)
-library(threejs)
-
+library(ggpubr)
 
 tech_source_edges <- water %>% 
   
@@ -336,6 +334,34 @@ tech_source_edges <- water %>%
   filter(count > 1)
 
 
+tech_source_edges %>% 
+  
+  pivot_wider( names_from = from, values_from = count, values_fill  =0) %>% 
+  
+  column_to_rownames(var="to") %>% 
+  
+  ggballoonplot(., fill = "value") +
+  
+  scale_fill_viridis_c(option = "C") +
+  
+  coord_flip()
+
+# tech_source_edges %>%
+# 
+#   ggballoonplot(x = "to", y = "from", size = "count", fill = "count") +
+# 
+#   scale_fill_viridis_c(option = "C")
+
+```
+
+### Water Tech Vs Water Water Access Points - Network Graph
+
+```{r Most common tech by Waster source - Network Graph}
+
+library(widyr)
+library(igraph)
+library(threejs)
+
 tech_source_vertices <- tech_source_edges %>% 
   
   select(-count) %>% 
@@ -344,7 +370,7 @@ tech_source_vertices <- tech_source_edges %>%
   
   distinct(text) %>% 
   
-  mutate(type = ifelse(text %in% tech_source_edges$from, "water source", "water_tech"),
+  mutate(type = ifelse(text %in% tech_source_edges$from, "Water Acess Points", "water_tech"),
          
          type = as.factor(type)) 
   
@@ -352,7 +378,7 @@ tech_source_vertices <- tech_source_edges %>%
 
 g <- graph_from_data_frame(d = tech_source_edges, directed = FALSE, vertices = tech_source_vertices)
 
-V(g)$color = ifelse(V(g)$type == "water source", "orange", "dodgerblue")
+V(g)$color = ifelse(V(g)$type == "Water Acess Points", "orange", "dodgerblue")
 
 plot(g, 
      
@@ -381,32 +407,6 @@ plot(g,
 # 
 # 
 
-
-```
-
-### Water Tech Vs Water Sources - Baloon Chart
-
-```{r Most common tech by Water source - Baloon chart}
-
-library(ggpubr)
-
-tech_source_edges %>% 
-  
-  pivot_wider( names_from = from, values_from = count, values_fill  =0) %>% 
-  
-  column_to_rownames(var="to") %>% 
-  
-  ggballoonplot(., fill = "value") +
-  
-  scale_fill_viridis_c(option = "C") +
-  
-  coord_flip()
-
-# tech_source_edges %>%
-# 
-#   ggballoonplot(x = "to", y = "from", size = "count", fill = "count") +
-# 
-#   scale_fill_viridis_c(option = "C")
 
 ```
 
