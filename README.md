@@ -3,6 +3,11 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 
 
 ---
+### 2021-05-11 🌐 US Broadband [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_05_11_us_broadband/2021_05_11_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_05_11_tidy_tuesday_dashboard.html)
+
+![./plots/kenya_census.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/us_broadband.png)
+---
+---
 ### 2021-05-04 🌐 Water Access Points [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_05_04_water_acess_points/2021_05_04_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_05_04_tidy_tuesday_dashboard.html)
 
 ![./plots/kenya_census.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/water_access_points.png)
