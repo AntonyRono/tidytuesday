@@ -1,0 +1,365 @@
+---
+title: "US Salary - Ask a Manager Survey - US"
+author: "Antony Rono"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    source_code: embed
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(plotly)
+library(lubridate)
+library(ggthemes)
+library(magrittr)
+library(janitor)
+
+options(scipen = 99)
+theme_set(theme_light())
+
+```
+
+```{r Load, include=FALSE}
+
+#tt <- tt_load("2021-05-18")
+
+data_raw <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-18/survey.csv')
+
+```
+
+```{r functions, include=FALSE}
+
+summarize_salary <- function(tbl){
+  
+  tbl %>% 
+    
+    summarize(n = n(),
+              
+              median_salary = median(annual_salary)) %>% 
+    
+    arrange(desc(n))
+}
+
+
+is_outlier <- function(x) {
+  
+  return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
+}
+
+
+
+plot_categorical_bar <- function(data, col, n_level = 15, reorder = TRUE){
+  
+  lumped_data <- data %>% 
+    
+    filter(!is.na({{col}})) %>% 
+    
+    mutate({{col}} := fct_lump({{col}}, n_level ))
+  
+  if(reorder){
+    
+    lumped_data %<>%
+      
+      mutate({{col}} := fct_reorder({{col}}, annual_salary))
+    
+  }
+          
+  lumped_data %>% 
+      
+    mutate(outlier = ifelse(is_outlier(annual_salary), job_title, NA_character_)) %>% 
+    
+    group_by({{col}}) %>% 
+    
+    summarize_salary() %>% 
+    
+    ggplot(aes(median_salary, {{col}}, fill = {{col}})) +
+    
+    geom_col() +
+    
+    scale_x_continuous(labels = dollar, expand = c(0,0)) +
+    
+    theme(legend.position = "none") +
+    
+    labs(x = "Median Salary")
+  
+  
+}
+
+```
+
+```{r data wrangling, include=FALSE}
+
+skimr::skim(data_raw)
+
+## Changing Structures
+
+survey <- data_raw %>% 
+  
+  mutate(timestamp = mdy_hms(timestamp),
+         
+         age_category = fct_relevel(fct_reorder(how_old_are_you, parse_number(how_old_are_you)), "under 18"),
+         
+         overall_years_of_professional_experience = str_replace(overall_years_of_professional_experience, " - ", "-"),
+         
+         years_of_experience_in_field = str_replace(years_of_experience_in_field, " - ", "-"),
+         
+         overall_years_of_professional_experience = fct_reorder(overall_years_of_professional_experience, parse_number(overall_years_of_professional_experience)),
+         
+         years_of_experience_in_field = fct_reorder(years_of_experience_in_field , parse_number(years_of_experience_in_field )),
+         
+         gender = fct_collapse(gender, "Other or prefer not to answer" = c("Other or prefer not to answer", "Prefer not to answer")),
+         
+         race = coalesce(race, "Other")
+         )
+  
+
+## Standardizing Industries
+
+library(readxl)
+library(stringdist)
+
+industries <- readxl::read_xlsx("industries.xlsx")
+
+survey %<>% 
+  
+  mutate(industry_std = industries$Industry[amatch(industry, industries$Industry, maxDist = 3)],
+         
+         industry_std = ifelse(is.na(industry_std), "Other",industry_std)
+         ) 
+
+
+
+## USD Records
+
+survey_usd <- survey %>% 
+  
+  filter(currency == "USD") %>% 
+  
+  #filter(annual_salary > quantile(annual_salary, .005),annual_salary <= quantile(annual_salary, .9995)) %>% 
+  
+  filter(annual_salary >= 5000,
+         annual_salary <= 2000000) %>% 
+  
+  mutate(state = str_remove(state, ", .*")) %>% 
+  
+  mutate(state_abb = state.abb[match(state, state.name)],
+         
+       state_abb = ifelse(state == "District of Columbia", "DC", state_abb)) 
+  
+
+```
+
+Geographical Breakdown {data-icon="fa-map-marker-alt"}
+=======================================================================
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Median Salary by State
+
+```{r High Charter Map}
+
+library(highcharter)
+
+#x <- get_data_from_map(download_map_data("https://code.highcharts.com/mapdata/countries/us/us-all.js"))
+
+survey_usd_median_salary_states <- survey_usd %>% 
+  
+  filter(!is.na(state)) %>% 
+  
+  mutate(state = fct_lump(state, 15 ),
+         
+         state = fct_reorder(state, annual_salary)) %>% 
+  
+  mutate(outlier = ifelse(is_outlier(annual_salary), job_title, NA_character_)) %>% 
+  
+  group_by(state_abb) %>% 
+  
+  summarize_salary() 
+
+
+hcmap(
+  
+   map = "countries/us/us-all.js", # high resolution world map
+  
+   data = survey_usd_median_salary_states %>% rename(`hc-a2` = state_abb) , # name of dataset
+  
+   joinBy = "hc-a2",
+  
+   value = "median_salary",
+  
+   showInLegend = FALSE, # hide legend
+  
+   nullColor = "#FFFFFF",
+  
+   download_map_data = TRUE,
+   
+   dataLabels = list(enabled = TRUE, format = '{point.name}')
+
+   ) %>% 
+  
+  #hc_colorAxis(minColor = "#FFFFCC", maxColor = "blue") %>% 
+   
+    hc_mapNavigation(enabled = FALSE) %>%
+  
+   hc_legend("none")
+
+```
+
+### Breakdown as Bar Chart
+
+```{r Distribution of Median salaries by state}
+
+p <- plot_categorical_bar(survey_usd, state, 15)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Relationship between cost of living and median salary
+
+```{r Cost of living by state}
+
+cost_of_Living <- read_csv("cost_of_living.csv")
+
+cost_of_Living %<>% 
+  
+  clean_names() 
+
+p <- survey_usd %>% 
+  
+  group_by(state) %>% 
+  
+  summarize_salary() %>% 
+  
+  ungroup() %>% 
+  
+  filter(!is.na(state)) %>% 
+  
+  left_join(cost_of_Living, by = "state") %>%
+  
+  filter(!is.na(cost_index)) %>% 
+  
+  ggplot(aes(median_salary, cost_index, color = state))+
+  
+  geom_point() +
+  
+  scale_x_continuous(labels = dollar)+
+  
+  theme(legend.position = "none")
+
+
+ggplotly(p)
+
+
+```
+
+Salary by Profession {data-icon="fa-chart-bar"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Distribution of Salaries by Industry
+
+```{r salaries by industry}
+
+p <- plot_categorical_bar(survey_usd, industry_std, 15)
+         
+ggplotly(p, tooltip = c("x", "y"))
+```
+
+
+### Distribution of Salaries by Job Title
+
+```{r salaries by job title}
+
+p <- plot_categorical_bar(survey_usd, job_title, 15)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Distribution of Salaries by Overall Year of Experience
+
+```{r salaries by overall experience}
+
+p <- plot_categorical_bar(survey_usd, overall_years_of_professional_experience,  15, reorder = FALSE)
+
+ggplotly(p, tooltip = c("x", "y"))
+```
+
+### Distribution of Salaries by Year of experience in field
+
+```{r salaries by year of experience}
+
+p <- plot_categorical_bar(survey_usd, years_of_experience_in_field,  15, reorder = FALSE)
+
+ggplotly(p, tooltip = c("x", "y"))
+```
+
+
+Salary by Demography {data-icon="fa-chart-line"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Distribution of Salaries by Gender
+
+```{r salaries by gender}
+
+p <- plot_categorical_bar(survey_usd, gender,  15)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+### Distribution of Salaries by Race
+
+```{r salaries by race}
+
+p <- plot_categorical_bar(survey_usd, race, n = 10)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Distribution of Salaries by Education Level
+
+```{r salaries by education level}
+
+p <- plot_categorical_bar(survey_usd, highest_level_of_education_completed)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+### Distribution of Salaries by Age Category
+
+```{r salaries by age}
+
+p <- plot_categorical_bar(survey_usd, age_category, reorder = FALSE)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+

@@ -1,0 +1,376 @@
+---
+title: "Ask a manager survey - modelling"
+author: "Antony"
+date: "5/30/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(plotly)
+library(lubridate)
+library(ggthemes)
+library(magrittr)
+library(janitor)
+library(ggsflabel)
+
+options(scipen = 99)
+theme_set(theme_light())
+
+```
+
+# Load the weekly Data
+
+```{r Load}
+
+#tt <- tt_load("2021-05-18")
+
+data_raw <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-18/survey.csv')
+
+```
+
+# Helper Functions
+
+```{r functions}
+
+summarize_salary <- function(tbl){
+  
+  tbl %>% 
+    
+    summarize(n = n(),
+              
+              median_salary = median(annual_salary)) %>% 
+    
+    arrange(desc(n))
+}
+
+
+is_outlier <- function(x) {
+  
+  return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
+}
+
+
+```
+
+# Data Wrangling
+
+```{r data wrangling}
+
+skimr::skim(data_raw)
+
+## Changing Structures
+
+survey <- data_raw %>% 
+  
+  mutate(timestamp = mdy_hms(timestamp),
+         
+         age_category = fct_relevel(fct_reorder(how_old_are_you, parse_number(how_old_are_you)), "under 18"),
+         
+         overall_years_of_professional_experience = str_replace(overall_years_of_professional_experience, " - ", "-"),
+         
+         years_of_experience_in_field = str_replace(years_of_experience_in_field, " - ", "-"),
+         
+         overall_years_of_professional_experience = fct_reorder(overall_years_of_professional_experience, parse_number(overall_years_of_professional_experience)),
+         
+         years_of_experience_in_field = fct_reorder(years_of_experience_in_field , parse_number(years_of_experience_in_field )),
+         
+         gender = fct_collapse(gender, "Other or prefer not to answer" = c("Other or prefer not to answer", "Prefer not to answer")),
+         
+         race = coalesce(race, "Other")
+         )
+  
+
+## Standardizing Industries
+
+library(readx)
+library(stringdist)
+
+industries <- readxl::read_xlsx("2021_05_18_ask_a_manager_survey/industries.xlsx")
+
+survey %<>% 
+  
+  mutate(industry_std = industries$Industry[amatch(industry, industries$Industry, maxDist = 3)],
+         
+         industry_std = ifelse(is.na(industry_std), "Other",industry_std)
+         ) 
+
+
+
+## USD Records
+
+survey_usd <- survey %>% 
+  
+  filter(currency == "USD") %>% 
+  
+  #filter(annual_salary > quantile(annual_salary, .005),annual_salary <= quantile(annual_salary, .9995)) %>% 
+  
+  filter(annual_salary >= 5000,
+         annual_salary <= 2000000) %>% 
+  
+  mutate(state = str_remove(state, ", .*")) %>% 
+  
+  mutate(state_abb = state.abb[match(state, state.name)],
+         
+       state_abb = ifelse(state == "District of Columbia", "DC", state_abb)) 
+  
+
+```
+
+
+
+# Statictical Modelling
+
+### Distribution of Salaries in USD
+
+```{r Distribution of Salaries}
+
+survey_usd %>% 
+  
+  ggplot(aes(annual_salary)) +
+  
+  geom_histogram() +
+  
+  scale_x_log10(labels = dollar)
+
+
+```
+
+Looks like a lognormal distribution
+
+### Distribution of Salaries by State in USD
+
+```{r Distribution of salaries by state - boxplot}
+
+survey_usd %>% 
+  
+  filter(!is.na(state)) %>% 
+  
+  mutate(state = fct_lump(state, 9 ),
+         
+         state = fct_reorder(state, annual_salary)) %>% 
+  
+  mutate(outlier = ifelse(is_outlier(annual_salary), job_title, NA_character_)) %>% 
+  
+  ggplot(aes(annual_salary, state, fill = state)) +
+  
+  geom_boxplot()+
+  
+  scale_x_log10(labels = dollar) +
+  
+  theme(legend.position = "none")
+
+```
+
+So much variation within states as in between states, hence we'll look at the median as opposed to distribution
+
+## ANOVA
+
+- Compares the variance within groups and between groups
+
+- Null hypothesis is that there is no variation, and that the means are equal.
+
+
+### Which of overall experience and experience in field explain more variation?
+
+```{r Linear Model - experience}
+
+survey_usd %>% 
+  
+  filter(!is.na(overall_years_of_professional_experience)) %>% 
+  
+  ggplot(aes(annual_salary, overall_years_of_professional_experience)) +
+  
+  geom_boxplot() +
+  
+  scale_x_log10()
+
+
+
+lm(log2(annual_salary)~overall_years_of_professional_experience, data = survey_usd) %>%   #Log 2 makes the intercepts more interpretable (i.e if 2, this means that the category makes 2^2 as much as the base category )
+  
+  summary()
+
+lm(log2(annual_salary)~years_of_experience_in_field, data = survey_usd) %>% 
+  
+  summary()
+
+```
+
+* Overall Experience explains 5.8% of the overall variation
+* Experience in field explains 10% of the variation
+* Hence, experience in field might be a better predictor
+* Note: We use log scale as that when the dependent variable (annual salary) is bell-curved
+
+### What variations are explained by the different categories
+
+```{r ANOVA}
+
+library(broom)
+
+survey_usd %>% 
+  
+  mutate(job_title = fct_lump(job_title, 30),
+         
+         state = fct_lump(state, 30)
+         
+         ) %>% 
+  
+  lm(log2(annual_salary) ~ job_title + 
+       state + years_of_experience_in_field +
+       gender + 
+       race + 
+       highest_level_of_education_completed +
+       age_category+ 
+       industry_std, 
+     
+     data = .) %>% 
+  
+  anova() %>% 
+  
+  broom::tidy() %>% 
+  
+  mutate(pct_variation =sumsq / sum(sumsq)) %>% 
+  
+  arrange(desc(pct_variation))
+
+
+```
+
+# Machine Learning
+
+### Preprocessing
+
+```{r machine learning preprocessing}
+
+library(tidymodels)
+
+set.seed(2021)
+
+survey_usd_split <- initial_split(survey_usd)
+
+survey_usd_training <- training(survey_usd_split)
+
+survey_usd_testing <- testing(survey_usd_split)
+
+skimr::skim(survey_usd)
+
+rec <- survey_usd_training %>% 
+  
+  recipe(annual_salary ~ job_title + 
+       state + years_of_experience_in_field +
+       gender + 
+       race + 
+       highest_level_of_education_completed +
+       age_category+ 
+       industry_std) %>% 
+  
+  step_mutate_at(c("job_title", "state","highest_level_of_education_completed",  "industry_std"), fn = as.factor ) %>% # Changing to factor
+  
+  step_unknown(job_title, state, gender,highest_level_of_education_completed ) %>%  # Replacing NAs
+
+  step_log(annual_salary, base = 2) %>% # Annual Salary to Log
+  
+  step_other(job_title, industry_std, state, threshold = tune()) %>%   # Collapsing Factor levels
+
+  step_dummy(all_nominal()) #%>%  # Creating Dummy Variables for Factors
+  
+  #prep(training = survey_usd_training)
+  
+  
+  
+#training_prepared <- bake(rec, new_data = survey_usd_training)
+
+
+```
+
+### Tuning
+
+```{r Tuning}
+
+# V fold Cross Validation
+
+training_cv <- vfold_cv(survey_usd_training)
+
+# Tuning
+
+threshold_grid <- c(".0001", ".0005", ".001", ".005", ".01", ".05")
+
+linear_model_cv_tune_threshold <- linear_reg() %>% 
+  
+  set_engine("lm") %>% 
+  
+  tune_grid(rec,training_cv, threshold_grid)
+
+linear_model_cv_tune_threshold %>% 
+  
+  collect_metrics() %>% 
+  
+  ggplot(aes(threshold, mean, color = .metric)) +
+  
+  geom_line()
+
+```
+
+Threshold best at lower values
+
+### Cross Validation Final
+
+```{r cross validation}
+
+## Updating the recipe with a threhsold
+
+rec_with_threshold <- rec %>% 
+  
+  finalize_recipe(list(threshold = .001))
+  
+linear_model_cv <- linear_reg() %>% 
+  
+  set_engine("lm") %>% 
+  
+  fit_resamples(rec_with_threshold, training_cv)
+
+linear_model_cv$.metrics
+
+linear_model_cv %>% 
+  
+  collect_metrics(summarize = FALSE)
+
+
+linear_model_cv %>% 
+  
+  collect_metrics(summarize = FALSE) %>% 
+  
+  group_by(.metric) %>% 
+  
+  mutate(avg = mean(.estimate)) %>% 
+  
+  ungroup() %>% 
+  
+  ggplot(aes(id, .estimate, color = .metric, group = .metric)) +
+  
+  geom_line() +
+  
+  geom_hline(aes(yintercept = avg, color = .metric))
+
+show_best(linear_model_cv, metric = "rmse")
+```
+
+### Comparing the Linear Model with Random Forest
+
+```{r random forest}
+
+
+
+
+```
+

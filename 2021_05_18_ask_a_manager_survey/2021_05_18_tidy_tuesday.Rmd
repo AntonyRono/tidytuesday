@@ -1,0 +1,368 @@
+---
+title: "Ask a Manager Salary Survey"
+author: "Antony Rono"
+date: 2021-05-18
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(plotly)
+library(lubridate)
+library(ggthemes)
+library(magrittr)
+library(janitor)
+library(ggsflabel)
+library(cowplot)
+library(extrafont)
+
+options(scipen = 99)
+theme_set(theme_light())
+#font_import()
+loadfonts()
+```
+
+# Load the weekly Data
+
+```{r Load}
+
+tt <- tt_load("2021-05-18")
+
+data_raw <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-18/survey.csv')
+
+```
+
+# Helper Functions
+
+```{r functions}
+
+summarize_salary <- function(tbl){
+  
+  tbl %>% 
+    
+    summarize(n = n(),
+              
+              median_salary = median(annual_salary)) %>% 
+    
+    arrange(desc(n))
+}
+
+
+is_outlier <- function(x) {
+  
+  return(x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x))
+}
+
+
+#To be used in plot_categorical_violin function
+
+data_summary <- function(x) {
+  
+   m <- mean(x)
+  
+   ymin <- m-sd(x)
+   
+   ymax <- m+sd(x)
+   
+   return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+
+plot_categorical_violin <-function(data, col, n_level = 15, reorder = FALSE, funct = median, boxplot = FALSE) {
+  
+  lumped_data <- data %>% 
+    
+    filter(!is.na({{col}})) %>% 
+  
+    mutate({{col}} := fct_lump({{col}}, n_level ))
+  
+  if(reorder){
+    
+    lumped_data %<>%
+      
+      mutate({{col}} := fct_reorder({{col}}, annual_salary))
+    
+  }
+     
+  p <- lumped_data %>% 
+    
+    ggplot(aes(annual_salary, {{col}}, fill = {{col}})) +
+  
+    geom_violin(trim = FALSE) +
+  
+    stat_summary(fun = funct, geom = "point", size = 3, color = "red")+
+    
+    #stat_summary(fun.data=data_summary)+
+  
+    stat_summary(aes(label=dollar(round(10^(..x..),0))), fun=funct, geom="text", size=3.5, color = "sienna4",fontface = "bold",family = "Perpetua",
+               
+              vjust = -0, hjust = -0.3)+
+  
+    scale_x_log10(labels = dollar) +
+    
+    theme_classic()+
+  
+    theme(legend.position = "none",
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.y = element_text(size = 7),
+          plot.title = element_text(family = "Perpetua", face = "bold",  size=12),
+          plot.background = element_rect(fill = "grey98", color = NA),
+          panel.background = element_rect(fill = "grey98", color = NA))
+  
+  if(boxplot == TRUE){
+    
+    p + geom_boxplot(width=0.1,outlier.color = "#56B4E9", fill = "white")
+    
+  }else{
+    
+    p
+  }
+  
+  
+  
+}
+  
+
+
+```
+
+# Data Wrangling
+
+```{r data wrangling}
+
+skimr::skim(data_raw)
+
+## Changing Structures
+
+survey <- data_raw %>% 
+  
+  mutate(timestamp = mdy_hms(timestamp),
+         
+         age_category = fct_relevel(fct_reorder(how_old_are_you, parse_number(how_old_are_you)), "under 18"),
+         
+         overall_years_of_professional_experience = str_replace(overall_years_of_professional_experience, " - ", "-"),
+         
+         years_of_experience_in_field = str_replace(years_of_experience_in_field, " - ", "-"),
+         
+         overall_years_of_professional_experience = fct_reorder(overall_years_of_professional_experience, parse_number(overall_years_of_professional_experience)),
+         
+         years_of_experience_in_field = fct_reorder(years_of_experience_in_field , parse_number(years_of_experience_in_field )),
+         
+         gender = fct_collapse(gender, "Other or prefer not to answer" = c("Other or prefer not to answer", "Prefer not to answer")),
+         
+         race = coalesce(race, "Other")
+         )
+  
+
+## Standardizing Industries
+
+library(readx)
+library(stringdist)
+
+industries <- readxl::read_xlsx("2021_05_18_ask_a_manager_survey/industries.xlsx")
+
+survey %<>% 
+  
+  mutate(industry_std = industries$Industry[amatch(industry, industries$Industry, maxDist = 3)],
+         
+         industry_std = ifelse(is.na(industry_std), "Other",industry_std)
+         ) 
+
+
+
+## USD Records
+
+survey_usd <- survey %>% 
+  
+  filter(currency == "USD") %>% 
+  
+  #filter(annual_salary > quantile(annual_salary, .005),annual_salary <= quantile(annual_salary, .9995)) %>% 
+  
+  filter(annual_salary >= 5000,
+         annual_salary <= 2000000) %>% 
+  
+  mutate(state = str_remove(state, ", .*")) %>% 
+  
+  mutate(state_abb = state.abb[match(state, state.name)],
+         
+       state_abb = ifelse(state == "District of Columbia", "DC", state_abb)) 
+  
+
+```
+
+# Visualizations 
+
+### Distribution of Salaries by State in USD
+
+```{r Distribution of salaries by state - boxplot}
+
+survey_usd %>% 
+  
+  filter(!is.na(state)) %>% 
+  
+  mutate(state = fct_lump(state, 9 ),
+         
+         state = fct_reorder(state, annual_salary)) %>% 
+  
+  mutate(outlier = ifelse(is_outlier(annual_salary), job_title, NA_character_)) %>% 
+  
+  ggplot(aes(annual_salary, state, fill = state)) +
+  
+  geom_boxplot()+
+  
+  scale_x_log10(labels = dollar) +
+  
+  theme(legend.position = "none")
+
+```
+
+So much variation within states as in between states, hence we'll look at the median as opposed to distribution
+
+#### Static Map
+
+```{r SF Map}
+
+library(tigris)
+options(tigris_use_cache = TRUE)
+
+states_sf <- states()
+
+survey_usd_median_salary_states <- survey_usd %>% 
+  
+  filter(!is.na(state)) %>% 
+  
+  mutate(state = fct_lump(state, 15 ),
+         
+         state = fct_reorder(state, annual_salary)) %>% 
+  
+  mutate(outlier = ifelse(is_outlier(annual_salary), job_title, NA_character_)) %>% 
+  
+  group_by(state_abb) %>% 
+  
+  summarize_salary() 
+
+
+
+map <- states_sf %>% 
+  
+  inner_join(survey_usd_median_salary_states, by = c(STUSPS = "state_abb")) %>% 
+  
+  filter(!STUSPS %in% c("AK", "HI")) %>% 
+  
+  ggplot(aes(fill = median_salary)) +
+  
+  geom_sf(size = .05)  +
+  
+  geom_sf_text(aes(label = STUSPS), size = 1.8) +
+  
+  scale_fill_gradient2(labels = scales::unit_format(unit = "K", scale = 1e-3), low = "red", high = "blue", midpoint =median(survey_usd_median_salary_states$median_salary, na.rm = TRUE) ) +
+  
+  #scale_fill_gradient2(labels = comma, low = "red", high = "blue", midpoint =median(survey_usd_median_salary_states$median_salary, na.rm = TRUE) ) +
+  
+  theme_map() +
+  
+  coord_sf() +
+  
+  theme(legend.position = c(0, 0),
+          
+        legend.direction = "horizontal",
+          
+        legend.text = element_text(size = 8),
+          
+        legend.title = element_text(size = 8),
+          
+        legend.key.height = unit(0.6, "line"),
+          
+        legend.key.size = unit(0.5, "cm"),
+        
+        plot.title = element_text(family = "Perpetua", face = "bold",  size=12)
+        ) +
+  
+  guides(fill = guide_legend(title.position="top", title.hjust = 0.5, reverse = TRUE))+
+  
+  labs(title = "Median Annual Salary Across the US")
+  
+
+```
+
+### Violin plots
+
+```{r violin}
+
+industry <- survey_usd %>%
+  
+  mutate(industry_std = str_wrap(industry_std, 15)) %>% 
+  
+  plot_categorical_violin(industry_std, boxplot = FALSE, funct = median, reorder = TRUE, n_level = 9) +
+  
+  labs(title = "Median Salary by Industry")
+
+experience <- survey_usd %>%
+  
+  mutate(years_of_experience_in_field = str_wrap(years_of_experience_in_field, 15)) %>% 
+
+  plot_categorical_violin(years_of_experience_in_field, boxplot = FALSE, funct = median, reorder = TRUE, n_level = 9) +
+  
+  labs(title = "Median Salary by Years\nof Experience in Field")
+
+```
+
+# Combining Plots
+
+```{r combining plots}
+
+
+ggdraw() +
+  
+  draw_plot(map, x = .0, y = .5, width = .55, height = .5, hjust = 0) +
+  
+  draw_plot(experience, x = .0, y = .02, width = .5, height = .5, vjust = 0) +
+  
+  draw_plot(industry, x = .5, y = .02, width = .5, height = .5, vjust = 0) +
+  
+  draw_text(family = "Perpetua",x = .76, y = 0.86,
+             
+            text = "Median Anual Salary in the US is approximately\n$78,000, with California having the highest\nannual salary of $101,000."
+            , color = "black", size = 12
+            
+             ) +
+  
+  draw_text(family = "Perpetua",x = .76, y = 0.75, size = 12,
+    
+    text = "Computing or Tech industry is the highest\npaying field, followed by law and engineering."
+  )+
+  
+  draw_text(family = "Perpetua",x = .76, y = 0.62, size = 12,
+    
+  text = "Surprisingly, years of experience in field is not\nperfectly correlated with annual salary, with\nthose with 21-30 years of experience recording\nhigher salaries than those with 31-40 years."
+  )+
+    
+  theme(
+    
+    plot.background = element_rect(fill = "grey98", color = NA)
+    
+  ) +
+  
+  draw_text(text = "Source: Ask a Manager Survey | Viz: Antony Rono", x = 1, y = 0.01,size = 8, vjust = 0, hjust = 1.05,color = "grey37")
+
+```
+
+# Saving Image
+
+```{r save image}
+ggsave(
+  filename = "./plots/ask_a_manager_survey.png",
+  device = "png")
+
+```

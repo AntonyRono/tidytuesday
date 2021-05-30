@@ -3,6 +3,11 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 
 
 ---
+### 2021-05-18 🌐 Ask a Manager Survey [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_05_18_ask_a_manager_survey/2021_05_18_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_05_18_tidy_tuesday_dashboard.html)
+
+![./plots/kenya_census.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/ask_a_manager_survey.png)
+---
+---
 ### 2021-05-11 🌐 US Broadband [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_05_11_us_broadband/2021_05_11_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_05_11_tidy_tuesday_dashboard.html)
 
 ![./plots/kenya_census.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/us_broadband.png)
