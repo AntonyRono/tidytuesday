@@ -3,7 +3,7 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 
 
 ---
-### 2021-05-25 🌐 Mario Kart World Records [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_05_25_mario_kart_world_records/2021_05_25_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_05_25_tidy_tuesday-dashboard.html)
+### 2021-05-25 🌐 Mario Kart World Records [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_05_25_mario_kart_world_records/2021_05_25_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_05_25_tidy_tuesday_dashboard.html)
 
 ![./plots/kenya_census.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/mario_kart_world_records.png)
 ---
