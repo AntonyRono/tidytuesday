@@ -1,0 +1,437 @@
+---
+title: "Mario Kart World Records"
+author: "Antony Rono"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    source_code: embed
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(janitor)
+library(scales)
+library(lubridate)
+library(plotly)
+library(hrbrthemes)
+
+options(scipen = 99)
+theme_set(theme_light())
+
+```
+
+
+```{r Load data, include=FALSE}
+
+#tt <- tt_load("2021-05-25")
+
+records <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-25/records.csv')
+drivers <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-05-25/drivers.csv')
+
+```
+
+
+Trends in World Records {data-icon="fa-chart-line"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Overall
+
+```{r trend in world record - overall}
+
+p <- records %>% 
+  
+  mutate(year = year(date)) %>% 
+  
+  group_by(year, type, track) %>% 
+  
+  summarise(record_time = min(time)) %>% 
+  
+  ungroup() %>% 
+  
+  ggplot(aes(year, record_time, color = type)) +
+  
+  geom_line() +
+  
+  geom_point() +
+  
+  facet_wrap(~track) +
+  
+  theme_bw()+
+  
+  theme(axis.text.x = element_text(size = 7.5,angle = 45, vjust = 1, hjust=1),
+        
+        strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(size = 8)) 
+p
+ggplotly(p)
+
+```
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Without Shortcuts
+
+```{r trend in world record - without shortcut}
+
+
+p <- records %>% 
+  
+  filter(shortcut == "No") %>% 
+  
+  mutate(year = year(date)) %>% 
+  
+  group_by(year, type, track) %>% 
+  
+  summarise(record_time = min(time)) %>% 
+  
+  ungroup() %>% 
+  
+  ggplot(aes(year, record_time, color = type)) +
+  
+  geom_line() +
+  
+  geom_point() +
+  
+  facet_wrap(~track) +
+  
+  theme_bw()+
+  
+  theme(axis.text.x = element_text(size = 7.5,angle = 45, vjust = 1, hjust=1),
+        
+        strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(size = 8)) 
+
+ggplotly(p)
+
+```
+
+### With Shortcut
+
+```{r trend in world record - with shortcut}
+
+p <- records %>% 
+  
+  filter(shortcut == "Yes") %>% 
+  
+  mutate(year = year(date)) %>% 
+  
+  group_by(year, type, track) %>% 
+  
+  summarise(record_time = min(time)) %>% 
+  
+  ungroup() %>% 
+  
+  ggplot(aes(year, record_time, color = type)) +
+  
+  geom_line() +
+  
+  geom_point() +
+  
+  facet_wrap(~track) +
+  
+  theme(axis.text.x = element_text(size = 7.5,angle = 45, vjust = 1, hjust=1)) +
+  
+  theme_bw()+
+  
+  theme(axis.text.x = element_text(size = 7.5,angle = 45, vjust = 1, hjust=1),
+        
+        strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(size = 8)) 
+
+
+
+ggplotly(p)
+```
+
+Fastest Tracks {data-icon="fa-space-shuttle"}
+=======================================================================
+
+Column (data-width=750)
+-----------------------------------------------------------------------
+
+### Fastest Tracks
+
+```{r fastest tracks}
+
+p <- records %>% 
+  
+  mutate(shortcut = case_when(
+    
+    shortcut == "No" ~ "Without Shortcut",
+    
+    shortcut == "Yes" ~ "With Shortcut",
+    
+    TRUE ~ shortcut
+    
+    ),
+  
+    shortcut = fct_relevel(shortcut, "Without Shortcut")
+  
+  ) %>% 
+  
+  group_by(track, type, shortcut) %>% 
+  
+  summarise(min_time = min(time)) %>% 
+  
+  ungroup() %>% 
+  
+  group_by(track, shortcut) %>% 
+  
+  mutate(min = min(min_time)) %>% 
+  
+  arrange(min, .by_group = TRUE) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(track = fct_reorder(track, min)) %>% 
+  
+  ggplot(aes(min_time, track, fill = type))+
+  
+  geom_col(position = "dodge") +
+  
+  scale_x_continuous(expand = c(0,0))+
+  
+  facet_wrap(~shortcut) +
+  
+  theme(axis.text.x = element_text(size = 7.5,angle = 45, vjust = 1, hjust=1),
+        
+        #strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(size = 8)) 
+ 
+
+ggplotly(p) 
+
+```
+
+Column (data-width=250)
+-----------------------------------------------------------------------
+
+### Observations
+
+- Mario Raceway is the fastest track without shortcut (Time 27.62 seconds)
+
+- Wario Stadium Fastest without Shortcut (Time 14.59 seconds)
+
+
+Improvement in World Records {data-icon="fa-sort-up"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Overall
+
+```{r improvements in word record - overall}
+
+
+p <- records %>% 
+  
+  group_by(track, type) %>% 
+  
+  summarise(change = max(time) - min(time),
+         
+         pct_change = change/max(time)) %>% 
+  
+  mutate(total = 1 -pct_change) %>% 
+  
+  ungroup() %>% 
+  
+  select(-change) %>% 
+  
+  mutate(track = fct_reorder(track, pct_change, .desc = FALSE)) %>% 
+  
+  ggplot(aes(pct_change, track, fill = type)) +
+  
+   geom_col()+
+  
+  #geom_col(aes(x = total, track)
+  
+  scale_x_continuous(labels = percent,
+                     expand = c(0,0)) +
+  
+    facet_wrap(~type) +
+  
+  theme(axis.text.x = element_text(size = 7.5,angle = 45, vjust = 1, hjust=1),
+        
+        #strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(size = 10)) 
+
+ggplotly(p)
+
+```
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Long Track
+
+```{r improvements in word record - long track}
+
+p <- records %>% 
+  
+  filter(shortcut == "No") %>% 
+  
+  group_by(track, type) %>% 
+  
+  summarise(change = max(time) - min(time),
+         
+         pct_change = change/max(time)) %>% 
+  
+  mutate(total = 1 -pct_change) %>% 
+  
+  ungroup() %>% 
+  
+  select(-change) %>% 
+  
+  mutate(track = fct_reorder(track, pct_change, .desc = FALSE)) %>% 
+  
+  ggplot(aes(pct_change, track, fill = type)) +
+  
+   geom_col()+
+  
+  scale_x_continuous(labels = percent,
+                     expand = c(0,0)) +
+  
+    facet_wrap(~type) +
+  
+  theme(axis.text.x = element_text(size = 7.5,angle = 45, vjust = 1, hjust=1),
+        
+        #strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(size = 10)) 
+
+ggplotly(p)
+  
+```
+
+### Shortcut
+
+```{r improvements in word record - shortcut}
+
+
+p <- records %>% 
+  
+  filter(shortcut == "Yes") %>% 
+  
+  group_by(track, type) %>% 
+  
+  summarise(change = max(time) - min(time),
+         
+         pct_change = change/max(time)) %>% 
+  
+  mutate(total = 1 -pct_change) %>% 
+  
+  ungroup() %>% 
+  
+  select(-change) %>% 
+  
+  mutate(track = fct_reorder(track, pct_change, .desc = FALSE)) %>% 
+  
+  ggplot(aes(pct_change, track, fill = type)) +
+  
+   geom_col()+
+  
+  #geom_col(aes(x = total, track)
+  
+  scale_x_continuous(labels = percent,
+                     expand = c(0,0)) +
+  
+    facet_wrap(~type) +
+  
+  theme(axis.text.x = element_text(size = 7.5,angle = 45, vjust = 1, hjust=1),
+        
+        #strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(size = 10)) 
+
+ggplotly(p)
+  
+```
+
+Players{data-icon="fa-user-plus"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Players With the Most World Records
+
+```{r players with the most world records}
+
+p <- drivers %>% 
+  
+  distinct(player, .keep_all = TRUE) %>% 
+  
+  slice_max(total, n=20) %>% 
+  
+  mutate(player = fct_reorder(player, total)) %>% 
+  
+  ggplot(aes(total, player)) +
+  
+   geom_col(fill = "turquoise3")+
+  
+  scale_x_continuous(expand = c(0,0)) +
+  
+  labs(x = "Total Records")
+  
+ggplotly(p)
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Players With the Most Current World Records
+
+```{r  players with the most current world records}
+
+p <- records %>% 
+  
+  group_by(track) %>% 
+  
+  filter(time == min(time)) %>% 
+  
+  ungroup() %>% 
+  
+  count(player, sort = TRUE) %>% 
+  
+  mutate(player = fct_reorder(player, n, .desc = TRUE)) %>% 
+  
+  ggplot(aes(player, n)) +
+  
+  geom_col(fill = "tomato2") +
+  
+  labs(y = "Number of current records")
+
+ggplotly(p)
+
+```
