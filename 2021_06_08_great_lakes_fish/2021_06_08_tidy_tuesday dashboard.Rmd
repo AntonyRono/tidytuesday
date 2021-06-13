@@ -1,0 +1,495 @@
+---
+title: "Great Lakes Fish"
+author: "Antony Rono"
+date: 2021-06-08
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    source_code: embed
+    hrbrthemes::FT:
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(flexdashboard)
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(plotly)
+library(tidytext)
+
+options(scipen = 99)
+theme_set(theme_light())
+```
+
+```{r Load, include=FALSE}
+
+#tt <- tt_load("2021-06-08")
+
+fishing <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-08/fishing.csv')
+stocked <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-08/stocked.csv')
+
+
+```
+
+```{r Cleaning data, include=FALSE}
+
+fishing_countries <- fishing %>% 
+  
+  mutate(region = case_when(
+    
+    str_detect(region, "U.S. Total") ~ "U.S. Total",
+    
+    str_detect(region, "Canada (ONT)") ~ "Canada (ONT)",
+    
+    TRUE ~ region
+    
+  ),
+  
+  #mutate(region = str_replace(region, "Total Canada (ONT)", "Canada (ONT)"),
+         
+         #region = str_replace(region, "U.S. Total (MI)", "U.S. Total"),
+         
+         values = round(values*1000, 0),
+         
+         species = str_to_title(species),
+         
+         species = str_replace(species, "([^s])s$", "\\1")
+         
+         ) %>% 
+  
+  filter(region %in% c("Canada (ONT)", "U.S. Total"), values>=0, !is.na(values)) 
+
+
+```
+
+# Introduction {.sidebar}
+
+
+This report examines fish productions in the Great Lakes for the period 1867-2015.
+
+The report is part of my submission in the [#TidyTuesday challenge](https://github.com/rfordatascience/tidytuesday), a weekly data project on understanding how to analyze data to make meaningful and/or beautiful chart using R.
+
+It is written in [R Markdown](http://rmarkdown.rstudio.com), an authoring format that enables easy creation of dynamic documents, presentations, and reports from R. R Markdown combines the core syntax of **markdown** (an easy to write plain text format) with embedded **R** code chunks that are run so their output can be included in the final document.
+
+The data comes from [Great Lakes Fishery Commission. ](http://www.glfc.org/great-lakes-databases.php).
+
+Full details on the data can be found on their [statistic notes](http://www.glfc.org/commercial/COMMERCIAL%20FISH%20PRODUCTION_Notes%20on%20Statistics.pdf) and [background notes](http://www.glfc.org/commercial/COMMERCIAL%20FISH%20PRODUCTION_background.pdf)
+
+
+Overall {data-icon="fa-map-marker-alt"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Fish Production by Lake
+
+```{r Fish production by lake}
+
+p <- fishing_countries %>% 
+  
+  count(lake,  wt = values, name = "production") %>% 
+  
+  mutate(lake = fct_reorder(lake, production, .desc = TRUE)) %>% 
+  
+  ggplot(aes(lake, production, fill = lake)) +
+  
+  geom_col() +
+  
+  scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6, prefix = "£")) +
+  
+  theme(legend.position = "none")
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+### Fish Production by Species
+
+```{r Fish production by Species}
+
+p <- fishing_countries %>% 
+  
+  count(species,  wt = values, name = "production", sort = TRUE) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(species = fct_lump(species, 15, w = production)) %>% 
+  
+  count(species,  wt = production, name = "production", sort = TRUE) %>% 
+  
+  mutate(species = fct_reorder(species, production, .desc = FALSE)) %>% 
+  
+  ggplot(aes(species, production, fill = species)) +
+  
+  geom_col() +
+  
+  scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6,prefix = "£")) +
+  
+  theme(legend.position = "none") +
+  
+  coord_flip()
+  
+ggplotly(p, tooltip = c("x", "y"))
+
+
+```
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Fish Production by Lake and Species
+
+```{r production by lake and species heatmap}
+
+p <- fishing_countries %>% 
+  
+  mutate(species = fct_lump(species, 20, w = values),
+         
+         species = fct_reorder(species, values, sum, .desc = FALSE),
+         
+         lake = fct_reorder(lake, values, sum, .desc = TRUE)
+         
+         ) %>% 
+  
+  count(lake, species, wt = values, name = "production") %>% 
+  
+  group_by(lake) %>% 
+  
+  mutate(pct = production / sum(production)) %>% 
+  
+  ggplot(aes(lake, species, fill = pct)) +
+  
+  geom_tile() +
+  
+    scale_fill_gradient(low = "white",
+                      high = "#e6550d",
+                      guide = "colorbar",
+                      #labels = scales::unit_format(unit = "M", scale = 1e-6, prefix = "£"),
+                      labels = percent_format(accuracy = 1)
+                      ) +
+  
+  expand_limits(fill = 0) +
+  
+  theme(panel.grid = element_blank()) +
+  
+    labs(x = "Lake",
+       
+       y = "Species",
+       
+       fill = "All-time production",
+       
+       fill = "% of lake's production" )
+
+
+ggplotly(p)
+```
+
+
+### Most Common Type of Fish Species in Each Lake
+
+```{r most common type of fish for each lake}
+
+p <- fishing_countries %>% 
+  
+  count(lake, species,  wt = values, name = "production", sort = TRUE) %>% 
+  
+  group_by(lake) %>% 
+  
+  slice_max(order_by = production,n= 5) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(lake = paste ("Lake", lake)) %>% 
+  
+  #mutate(species = str_wrap(species, 5)) %>% 
+  
+  ggplot(aes(y = tidytext::reorder_within(species, production,lake),
+             x =  production)) +
+  
+  geom_point(aes(size = production,color = species)) +
+  
+  geom_text(aes(label = species), size = 3,
+            nudge_y = .3) +
+  
+  scale_x_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6, prefix = "£"),
+                     
+                     expand = c(1,0)
+                     ) +
+  
+  theme(axis.title.y =element_blank(),
+        
+        axis.text.y=element_blank(),
+        
+        axis.ticks.y=element_blank(),
+        
+        axis.text.x = element_text(size = 7),
+        
+        strip.background = element_rect(fill = "white"),
+        
+        #strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(colour = "black", size = 12, face = "bold"),
+        
+        legend.position = "none"
+        ) +
+  
+  facet_wrap(~lake, scales = "free")
+
+ggplotly(p, tooltip = c("x"))
+```
+
+### Lakes that the 5 most produced species are found in
+
+```{r Lakes that the 5 most produces species are found in}
+
+p <- fishing_countries %>% 
+  
+  count(lake, species,  wt = values, name = "production", sort = TRUE) %>% 
+  
+  filter(species %in% (fishing_countries %>% count(species, wt = values) %>% slice_max(n, n = 5))$species) %>% 
+
+  group_by(species) %>% 
+  
+  mutate(total = sum(production)) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(species = fct_reorder(species, total, .desc = TRUE)) %>% 
+  
+  ggplot(aes(y = tidytext::reorder_within(lake, production,species),
+             x =  production)) +
+  
+  geom_point(aes(size = production, color = lake)) +
+  
+  geom_text(aes(label = lake), size = 3,
+            nudge_y = .3) +
+  
+  scale_x_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6, prefix = "£"),
+                     
+                     expand = c(1,0)
+                     ) +
+  
+  theme(axis.title.y =element_blank(),
+        
+        axis.text.y=element_blank(),
+        
+        axis.ticks.y=element_blank(),
+        
+        axis.text.x = element_text(size = 7),
+        
+        strip.background = element_rect(fill = "white"),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(colour = "black", size = 12, face = "bold"), 
+        
+        legend.position = "none"
+        ) +
+  
+  facet_wrap(~species, scales = "free")
+
+ggplotly(p, tooltip = c("x"))
+
+```
+
+
+Yearly Trends {data-orientation=rows data-icon="fa-chart-line"}
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Trend In Fish Production by Country
+
+```{r trend in production amount by country}
+
+p <- fishing_countries %>% 
+  
+  count(year, region, wt = values, name = "production") %>% 
+  
+  mutate(production = round(production, 0)) %>% 
+  
+  filter(!is.na(production)) %>% 
+  
+  ggplot(aes(year, production, fill = region)) +
+  
+  geom_area() +
+  
+  scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6,prefix = "£")) 
+
+
+ggplotly(p, tooltip = c("fill", "x", "y"))
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Trend In Fish Production by Lake
+
+```{r trend in production amount by lake}
+
+p <- fishing_countries %>% 
+  
+  count(year, lake, wt = values, name = "production") %>% 
+  
+  mutate(production = round(production, 0),
+         
+         lake = fct_reorder(lake, production, .desc = FALSE)) %>% 
+  
+  filter(!is.na(production)) %>% 
+  
+  ggplot(aes(year, production, fill = lake)) +
+  
+  geom_area() +
+  
+  scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6,prefix = "£")) 
+
+ggplotly(p, tooltip = c("fill", "x", "y"))
+
+
+```
+Row
+-----------------------------------------------------------------------
+
+### Trend In Fish Production for Top 5 Species
+
+```{r trend in production amount by top 5 species}
+
+p <- fishing_countries %>% 
+  
+  count(year, species,  wt = values, name = "production", sort = TRUE) %>% 
+  
+  filter(species %in% (fishing_countries %>% count(species, wt = values) %>% slice_max(n, n = 5))$species) %>% 
+
+  group_by(species) %>% 
+  
+  mutate(total = sum(production)) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(species = fct_reorder(species, total)) %>% 
+  
+  ggplot(aes(year, production, fill = species)) +
+  
+  geom_area() +
+  
+  scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6,prefix = "£")) 
+  
+
+ggplotly(p)
+
+```
+
+Peak Years of Production {data-orientation=columns data-icon="fa-chart-bar"}
+=======================================================================
+
+Column
+-----------------------------------------------------------------------
+
+### Peak Year of Production For Each Species
+
+```{r Fish Productiom Peak Year by species}
+
+p <- fishing_countries %>% 
+  
+  group_by(species, year) %>% 
+  
+  summarise(production = sum(values)) %>% 
+  
+  ungroup() %>% 
+  
+  group_by(species) %>% 
+  
+  mutate(peak_year = year[which.max(production)],
+         
+         total_production = sum(production)) %>% 
+  
+  ungroup() %>% 
+  
+  distinct(species, total_production, peak_year) %>% 
+  
+  mutate(species = fct_reorder(species, peak_year)
+         
+         ) %>% 
+  
+  slice_max(total_production, n = 15) %>% 
+  
+  ggplot(aes(peak_year, species, size = total_production, color = species)) +
+  
+  geom_point() +
+  
+  scale_size_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6,prefix = "£")) +
+  
+  theme(legend.position = "none") +
+  
+  labs(x = "Year of peak production",
+       
+       y = "",
+       
+       size = "All-time production")
+  
+  #guides(color = FALSE)
+
+ggplotly(p, tooltip = c("x", "y", "size"))
+
+```
+Column
+-----------------------------------------------------------------------
+
+### Peak Year of Production For Each Lake
+
+```{r Fish Productiom Peak Year by lake}
+
+p <- fishing_countries %>% 
+  
+  group_by(lake, year) %>% 
+  
+  summarise(production = sum(values)) %>% 
+  
+  ungroup() %>% 
+  
+  group_by(lake) %>% 
+  
+  mutate(peak_year = year[which.max(production)],
+         
+         total_production = sum(production)) %>% 
+  
+  ungroup() %>% 
+  
+  distinct(lake, total_production, peak_year) %>% 
+  
+  mutate(species = fct_reorder(lake, peak_year)
+         
+         ) %>% 
+  
+  slice_max(total_production, n = 15) %>% 
+  
+  ggplot(aes(peak_year, lake, size = total_production, color = lake)) +
+  
+  geom_point() +
+  
+  scale_size_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6,prefix = "£")) +
+  
+  theme(legend.position = "none") +
+  
+  labs(x = "Year of peak production",
+       
+       y = "",
+       
+       size = "All-time production")
+  
+  #guides(color = FALSE)
+
+ggplotly(p, tooltip = c("x", "y", "size"))
+
+```
+

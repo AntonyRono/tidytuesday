@@ -1,0 +1,324 @@
+---
+title: "Great Lakes Fish"
+author: "Antony Rono"
+date: 2021-06-08
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(plotly)
+library(tidytext)
+library(hrbrthemes)
+library(ggthemes)
+
+options(scipen = 99)
+theme_set(theme_light())
+
+```
+
+# Loading Data
+
+```{r Load}
+
+tt <- tt_load("2021-06-08")
+
+fishing <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-08/fishing.csv')
+stocked <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-08/stocked.csv')
+
+
+```
+
+# Data Cleaning
+
+```{r Cleaning data}
+
+fishing_countries <- fishing %>% 
+  
+  mutate(region = case_when(
+    
+    str_detect(region, "U.S. Total") ~ "U.S. Total",
+    
+    str_detect(region, "Canada (ONT)") ~ "Canada (ONT)",
+    
+    TRUE ~ region
+    
+  ),
+         
+         values = round(values*1000, 0),
+         
+         species = str_to_title(species),
+         
+         species = str_replace(species, "([^s])s$", "\\1")
+         
+         ) %>% 
+  
+  filter(region %in% c("Canada (ONT)", "U.S. Total"), values>=0, !is.na(values)) 
+
+
+#bkgrnd <- "#252a32"
+bkgrnd <- "#333333"
+
+```
+
+# Visualization
+
+### Trend In Fish Production by Lake
+
+```{r trend in production amount by lake}
+
+trend <- fishing_countries %>% 
+  
+  count(year, lake, wt = values, name = "production") %>% 
+  
+  mutate(production = round(production, 0),
+         
+         lake = fct_reorder(lake, production, .desc = FALSE)) %>% 
+  
+  filter(!is.na(production)) %>% 
+  
+    group_by(lake) %>% 
+  
+  mutate(peak_year = year[which.max(production)],
+         
+         peak_prod = production[which.max(production)]) %>% 
+  
+  ggplot(aes(year, production, fill = lake)) +
+  
+  geom_col() +
+  
+  scale_y_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6,prefix = "£"),
+                     
+                     expand = c(0,0)) +
+  
+  theme_classic()+
+  
+    theme(
+    
+    axis.text.x = element_text(colour = "white"),
+    
+    axis.text.y = element_text(colour = "white"),
+    
+    axis.title.x = element_text(colour = "white"),
+    
+    axis.title.y = element_text(colour = "white"),
+      
+    plot.background = element_rect(fill = bkgrnd),
+    
+    panel.background = element_rect(fill = bkgrnd),
+    
+    panel.grid = element_blank(),
+    
+    panel.border = element_blank(),
+    
+    legend.title = element_text(color = "white"),
+    
+    legend.text = element_text(color = "white"),
+    
+    legend.background = element_rect(fill = bkgrnd),
+    
+    legend.position=c(1,1), 
+    
+    legend.justification=c(0, 1), 
+    
+    legend.key.width=unit(1, "lines"), 
+    
+    plot.margin = unit(c(1, 5, 0.5, 0.5), "lines")
+    
+  ) +
+  
+  labs(x = "Year",
+       
+       y = "Fish Production",
+       
+       fill = "Lake"
+       
+  )
+  
+
+```
+
+### Most Common Type of Fish Species in Each Lake
+
+
+```{r most common type of fish for each lake}
+
+facet_plot <- fishing_countries %>% 
+  
+  count(lake, species,  wt = values, name = "production", sort = TRUE) %>% 
+  
+  group_by(lake) %>% 
+  
+  slice_max(order_by = production,n= 5) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(lake = paste ("Lake", lake)) %>% 
+  
+  ggplot(aes(y = tidytext::reorder_within(species, production,lake),
+             x =  production)) +
+  
+  geom_point(aes(size = production,color = species)) +
+  
+  geom_text(aes(label = species, colour = "white"), size = 3,
+            nudge_y = .3) +
+  
+  geom_text(aes(label = paste0("£",round((production /1000000) , 0), "M"), color = "white"), size = 3, 
+            nudge_y = -.2) +
+  
+  scale_x_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6, prefix = "£"),
+                     
+                     expand = c(1,0)
+                     ) +
+  
+  theme_dark()+
+  
+  theme(axis.title.y =element_blank(),
+        
+        axis.text.y=element_blank(),
+        
+        axis.ticks.y=element_blank(),
+        
+        axis.title.x =element_blank(),
+        
+        axis.text.x=element_blank(),
+        
+        axis.ticks.x=element_blank(),
+        
+        strip.background = element_blank(),
+        
+        panel.border = element_rect(colour = "black", fill = NA),
+        
+        strip.text = element_text(colour = "white", size = 10, face = "bold"),
+        
+        legend.position = "none",
+        
+        plot.background = element_rect(fill = bkgrnd),
+    
+        panel.background = element_rect(fill = bkgrnd),
+    
+        panel.grid = element_blank(),
+        
+        plot.title = element_text(colour = "white")
+        
+        ) +
+  
+  facet_wrap(~lake, scales = "free", nrow = 1) #+
+  
+  #labs(title  = "Top 5 Fish Species Produced in Each Lake")
+
+
+```
+
+### Combining Plots
+
+```{r combining}
+
+library(cowplot)
+
+ggdraw() +
+  
+  draw_plot(trend, x = 0, y = .5, height = .43, width = 1) +
+  
+  draw_plot(facet_plot, x = 0, y = 0, width = 1, height = .45, vjust = 0) +
+  
+  draw_text(x = .5, y = .98,  text = "Fish Production in The Great Lakes: 1987-2015",
+            
+            colour = "wheat")+
+  
+  draw_text(x = .5, y = .95,  text = "Fish production has been decreasing in all the lakes since the early 1980s",
+            
+            colour = "wheat", size = 11)+
+  
+  
+  draw_text(x = .76, y = .52,  text = "Lake Erie accounts for 45% of the total fish production all-time", size = 9, color = "#669966") +
+  
+  annotate("curve", x = 0.6, y = 0.6 , xend = .75,yend = .53, color = "blueviolet",curvature = -.18, size = 1,arrow=arrow(length=unit(0.2,"cm"))) +
+  
+  draw_text(x = .5, y = .47,  text = "Top 5 Fish Species Produced in Each Lake",
+            
+            colour = "wheat", size = 11)+
+
+  
+  theme(
+    
+        plot.background = element_rect(fill = bkgrnd, colour = NULL),
+    
+        panel.background = element_rect(fill = bkgrnd, color = NULL),
+    
+        panel.border = element_blank(),
+  
+        panel.grid.major = element_blank(),
+    
+        panel.grid.minor = element_blank(),
+    
+        axis.title.y =element_blank(),
+        
+        axis.text.y=element_blank(),
+        
+        axis.ticks.y=element_blank(),
+        
+        axis.title.x =element_blank(),
+        
+        axis.text.x=element_blank(),
+        
+        axis.ticks.x=element_blank(),
+    
+  ) +
+  
+  background_grid(major = 'none', minor = "none") +
+  
+  panel_border(color = bkgrnd,  remove = TRUE) +
+  
+  draw_text(text = "Source:Great Lakes Fishery Commission. | Viz: Antony Rono", x = 1, y = 0.0025,size = 7, vjust = 0, hjust = 1.05,color = "grey98")
+  
+
+```
+
+
+```{r save plot}
+ggsave("plots/great_lakes_fish.png", 
+       bg = "transparent", 
+       width = 14, 
+       height = 8, 
+       dpi = 600)
+```
+
+
+<!-- # Forecasting -->
+
+
+<!-- # ```{r forecasting} -->
+<!-- #  -->
+<!-- # library(sweep) -->
+<!-- # library(timetk) -->
+<!-- # library(forecast) -->
+<!-- # library(lubridate) -->
+<!-- #  -->
+<!-- # fish <- "Lake Whitefish" -->
+<!-- #  -->
+<!-- #  -->
+<!-- # ind_species <- fishing_countries %>% -->
+<!-- #  -->
+<!-- #   filter(species ==  fish) -->
+<!-- #  -->
+<!-- #  -->
+<!-- #  -->
+<!-- # ind_species %>% -->
+<!-- #  -->
+<!-- #   count(year, species, wt = values, name = "production") %>% -->
+<!-- #  -->
+<!-- #   ggplot(aes(year,production )) + -->
+<!-- #  -->
+<!-- #   geom_line() + -->
+<!-- #  -->
+<!-- #   geom_point() -->
+<!-- #  -->
+<!-- # ``` -->
+
