@@ -3,7 +3,7 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 
 
 ---
-### 2021-06-08 🌐 Great Lakes Fish [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_06_08_great_lakes_fish/2021_06_08_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_06_08_tidy_tuesday_dashboard.html)
+### 2021-06-08 🌐 Great Lakes Fish [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_06_08_great_lakes_fish/2021_06_08_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_06_08_tidy_tuesday-dashboard.html)
 
 ![./plots/kenya_census.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/great_lakes_fish.png)
 ---
