@@ -166,10 +166,10 @@ facet_plot <- fishing_countries %>%
   
   geom_point(aes(size = production,color = species)) +
   
-  geom_text(aes(label = species, colour = "white"), size = 3,
+  geom_text(aes(label = species, colour = "white"), size = 3.5,
             nudge_y = .3) +
   
-  geom_text(aes(label = paste0("£",round((production /1000000) , 0), "M"), color = "white"), size = 3, 
+  geom_text(aes(label = paste0("£",round((production /1000000) , 0), "M"), color = "white"), size = 3.5, 
             nudge_y = -.2) +
   
   scale_x_continuous(labels = scales::unit_format(unit = "M", scale = 1e-6, prefix = "£"),
@@ -234,16 +234,16 @@ ggdraw() +
   
   draw_text(x = .5, y = .95,  text = "Fish production has been decreasing in all the lakes since the early 1980s",
             
-            colour = "wheat", size = 11)+
+            colour = "wheat", size = 12)+
   
   
-  draw_text(x = .76, y = .52,  text = "Lake Erie accounts for 45% of the total fish production all-time", size = 9, color = "#669966") +
+  draw_text(x = .76, y = .52,  text = "Lake Erie accounts for 45% of the total fish production all-time", size = 10, color = "#669966") +
   
   annotate("curve", x = 0.6, y = 0.6 , xend = .75,yend = .53, color = "blueviolet",curvature = -.18, size = 1,arrow=arrow(length=unit(0.2,"cm"))) +
   
   draw_text(x = .5, y = .47,  text = "Top 5 Fish Species Produced in Each Lake",
             
-            colour = "wheat", size = 11)+
+            colour = "wheat", size = 12)+
 
   
   theme(
@@ -276,7 +276,7 @@ ggdraw() +
   
   panel_border(color = bkgrnd,  remove = TRUE) +
   
-  draw_text(text = "Source:Great Lakes Fishery Commission. | Viz: Antony Rono", x = 1, y = 0.0025,size = 7, vjust = 0, hjust = 1.05,color = "grey98")
+  draw_text(text = "Source:Great Lakes Fishery Commission. | Viz: Antony Rono", x = 1, y = 0.0025,size = 8, vjust = 0, hjust = 1.05,color = "grey98")
   
 
 ```
