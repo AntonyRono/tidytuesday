@@ -115,14 +115,14 @@ We explore 3 approaches of plotting maps:
 
 1. Using Maps package
 
-1. Using SF & ggplot2 Packages (borders function)
+2. Using SF & ggplot2 Packages (borders function)
 
-1. Using SF & ggplot2 Packages (geom_path function)
+3. Using SF & ggplot2 Packages (geom_path function)
 
-1. Highcharter map (See the "2021_06_15_tidy_tuesday_dashboard,Rmd" for this)
+4. Highcharter map (See the "2021_06_15_tidy_tuesday_dashboard,Rmd" for this)
 
 
-Note: We decided on the 2nd approach
+Note: We've used the 4th approach to generate the plot
 
 
 #### Using Maps Package
@@ -210,7 +210,7 @@ ggplot() +
   geom_sf(data = tweets_map_sf, aes(color = "darkred", size = activity)) +
   
   geom_text_repel(aes(x = long , y = lat, label = activity),data = tweets_highest_interactions,
-                   size= 3,
+                   size= 3.5,
                    fontface = 'bold',
                    color = "violetred",
                    segment.colour = "violetred",
@@ -227,7 +227,7 @@ ggplot() +
   labs(title = "#DUBOISCHALLENGE TWEETS - 2021.",
        
         subtitle = "A total of <span style='color:red;'>**445**</span> tweets were tweeted with the <span style='color:forestgreen;'>**#DuBoisChallenge**</span> tag.<br>
-        This chart shows the distribution of the tweets across the globe, highlighting the <span style='color:violetred;'>**top 10 tweets with the highest activity**</span>",
+        This chart shows the distribution of the tweets across the globe, highlighting the <span style='color:violetred;'>**top 10 tweets with the highest interactions**</span>",
         fill = NULL, color = NULL, y = NULL, x = "Average record time for a 3-lap course (seconds)",
        
         caption = "source :Anthony Starks, Allen Hillery & Sekou Tyler. | viz: Antony Rono"
