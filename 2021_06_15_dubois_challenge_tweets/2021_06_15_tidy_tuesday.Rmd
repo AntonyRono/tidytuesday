@@ -169,7 +169,7 @@ ggplot() +
   theme(plot.background = element_rect(fill = '#dbc4b0'),
         legend.position = "none",
         plot.title = element_text(size=18, color = "forestgreen", face = "bold"),
-        plot.subtitle = element_markdown(lineheight = 1.1)
+        plot.subtitle = element_markdown(lineheight = 1.1, size = 11)
         ) +
   
   labs(title = "#DUBOISCHALLENGE TWEETS - 2021 .",
@@ -221,10 +221,10 @@ ggplot() +
   theme(plot.background = element_rect(fill = '#dbc4b0'),
         legend.position = "none",
         plot.title = element_text(size=18, color = "forestgreen", face = "bold"),
-        plot.subtitle = element_markdown(lineheight = 1.1)
+        plot.subtitle = element_markdown(lineheight = 1.1, size = 12)
         ) +
   
-  labs(title = "#DUBOISCHALLENGE TWEETS - 2021 .",
+  labs(title = "#DUBOISCHALLENGE TWEETS - 2021.",
        
         subtitle = "A total of <span style='color:red;'>**445**</span> tweets were tweeted with the <span style='color:forestgreen;'>**#DuBoisChallenge**</span> tag.<br>
         This chart shows the distribution of the tweets across the globe, highlighting the <span style='color:violetred;'>**top 10 tweets with the highest activity**</span>",
