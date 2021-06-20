@@ -122,7 +122,7 @@ We explore 3 approaches of plotting maps:
 4. Highcharter map (See the "2021_06_15_tidy_tuesday_dashboard,Rmd" for this)
 
 
-Note: We've used the 4th approach to generate the plot
+Note: We've used the 3rd approach to generate the plot
 
 
 #### Using Maps Package
