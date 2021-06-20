@@ -113,7 +113,7 @@ tweets_highest_interactions %<>%
 
 We explore 3 approaches of plotting maps:
 
-1. Using Maps package
+1. Using Maps package and Base R
 
 2. Using SF & ggplot2 Packages (borders function)
 
@@ -125,7 +125,7 @@ We explore 3 approaches of plotting maps:
 Note: We've used the 3rd approach to generate the plot
 
 
-#### Using Maps Package
+#### Using Maps Package and Base R
 
 ```{r map of activity - maps package}
 
