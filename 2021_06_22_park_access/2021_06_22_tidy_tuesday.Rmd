@@ -17,6 +17,7 @@ library(tidyverse)
 library(tidytuesdayR)
 library(scales)
 library(extrafont)
+library(ggbump)
 
 
 loadfonts()
@@ -33,6 +34,8 @@ parks <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidy
 
 
 ```
+
+# Data Wrangling 
 
 Keeping only the top 20 cities in 2020 with the highest score
 
@@ -52,10 +55,9 @@ parks_top <- parks %>%
 
 ```
 
+# Visualization
 
-```{r}
-
-library(ggbump)
+```{r plot}
 
 # Make a palette by drawing colors from `RColorBrewer`
 
@@ -65,7 +67,7 @@ custom_palette <- c(RColorBrewer::brewer.pal(9, "Set1"),
                     
                     )
 
-# Plotting rank from 2016
+# Plotting rank from 2016-2020
 
 parks_top %>% 
   
@@ -129,6 +131,8 @@ parks_top %>%
   
 
 ```
+
+# Saving Plot
 
 ```{r save plot}
 ggsave("plots/park_access.png", 
