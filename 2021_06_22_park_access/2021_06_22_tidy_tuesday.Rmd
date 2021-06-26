@@ -1,0 +1,140 @@
+---
+title: "Park Access"
+author: "Antony Rono"
+date: 2021-06-26
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(extrafont)
+
+
+loadfonts()
+
+```
+
+# Load the weekly Data
+
+```{r Load}
+
+#tt <- tt_load("2021-06-22")
+
+parks <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-22/parks.csv')
+
+
+```
+
+Keeping only the top 20 cities in 2020 with the highest score
+
+```{r top 20}
+
+top_cities <- parks %>% 
+  
+  arrange(desc(year), rank) %>% 
+  
+  head(20)
+
+
+parks_top <- parks %>% 
+  
+  filter(city %in% top_cities$city)
+
+
+```
+
+
+```{r}
+
+library(ggbump)
+
+# Make a palette by drawing colors from `RColorBrewer`
+
+custom_palette <- c(RColorBrewer::brewer.pal(9, "Set1"),
+                    RColorBrewer::brewer.pal(8, "Dark2"),
+                    RColorBrewer::brewer.pal(3, "Dark2")
+                    
+                    )
+
+# Plotting rank from 2016
+
+parks_top %>% 
+  
+  filter(year >= 2016) %>% 
+  
+  ggplot(aes(year, rank, color = city)) +
+  
+  geom_bump(smooth =  15, size = 1.2, alpha = .9)+
+  
+  geom_point(aes(size = 2, color = city))+
+  
+  geom_text(aes(x = year-.1, label = str_to_upper(city)), 
+            data = filter(parks_top, year == 2016),
+            hjust = 1,
+            size = 2.4, 
+            color = "gray100",
+            family = "Verdana",
+            fontface = 2
+            )+
+  
+    geom_text(aes(x = year+.1, label = str_to_upper(city)), 
+            data = filter(parks_top, year == 2020),
+            hjust = 0,
+            size = 2.4,
+             color = "gray100",
+            family = "Verdana",
+            fontface = 2)+
+  
+  scale_y_reverse() +
+  
+  scale_x_continuous(limits = c(2015.1, 2020.7),breaks = c(2016:2020)) +
+  
+  scale_colour_manual(values = custom_palette) +
+  
+  cowplot::theme_minimal_hgrid(font_size = 14) +
+  
+    theme(legend.position = "none",
+        panel.grid = element_blank(),
+        plot.title = element_text(hjust = 0, color = "#dbc4b1",family = "Verdana", face = 2),
+        plot.caption = element_text(hjust = 1, color = "white", size = 8),
+        plot.subtitle = element_text(hjust = .0, color = "#dbc4b1", size = 10,family = "Verdana", face = 2),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(face = 2, color = "white"),
+        panel.background = element_rect(fill = "black"),
+        plot.background = element_rect(fill = "black"),
+        #plot.margin = margin(10, 10, 5, 10)
+        ) +
+  
+    labs(
+      
+    
+      title = 'Top 20 US Cities Based On the Park Access Score In 2020',
+    
+      subtitle = 'This visualisation shows how the ranking of US cities has evolved from 2016 to 2020.\nThe Index used factors in 5 metrics: park access, acreage, investment, amenities and equity',
+    
+      caption = "source :The Trust for Public Land. | viz: Antony Rono"
+  ) 
+  
+
+```
+
+```{r save plot}
+ggsave("plots/park_access.png", 
+       bg = "transparent", 
+       width = 10, 
+       height = 11,
+       )
+```
+

@@ -3,6 +3,11 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 
 
 ---
+### 2021-06-22 🌐 Park Access [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_06_22_park_access/2021_06_22_tidy_tuesday.Rmd)
+
+![./plots/park_access.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/park_access.png)
+---
+---
 ### 2021-06-15 🌐 #DuboisChallenge Tweets [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_06_15_dubois_challenge_tweets/2021_06_15_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_06_15_tidy_tuesday_dashboard.html)
 
 ![./plots/DuBoisChallenge_tweets.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/DuBoisChallenge_tweets.png)
