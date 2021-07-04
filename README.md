@@ -5,7 +5,7 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 ---
 ### 2021-06-29 🌐 Animal Rescues [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_06_29_animal_rescues/2021_06_29_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_06_29_tidy_tuesday_dashboard.html)
 
-![./plots/animal_rescues.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/animal_rescues.png)
+![./plots/animal_rescue.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/animal_rescue.png)
 ---
 ---
 ### 2021-06-22 🌐 Park Access [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_06_22_park_access/2021_06_22_tidy_tuesday.Rmd)
