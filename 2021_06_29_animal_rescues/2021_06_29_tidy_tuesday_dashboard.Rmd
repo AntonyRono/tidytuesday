@@ -23,6 +23,7 @@ library(janitor)
 library(lubridate)
 library(magrittr)
 library(plotly)
+library(ggtext)
 
 theme_set(theme_light())
 ```
@@ -70,6 +71,8 @@ custom_palette <- c(RColorBrewer::brewer.pal(8, "Dark2"),
 plot_categorical_bar <- function(tbl, col,wt = NULL, reorder = TRUE, nlevel = 8, coord_flip = TRUE){
   
   lumped_data <- tbl %>% 
+    
+    mutate({{col}} := str_wrap({{col}}, 15)) %>% 
     
     filter(!is.na({{col}})) %>% 
   
