@@ -1,0 +1,220 @@
+---
+title: "Animal Rescues:2009-2020"
+author: "Antony Rono"
+date: 2021-07-01
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(lubridate)
+library(magrittr)
+library(extrafont)
+library(ggfittext)
+library(ggtext)
+
+
+loadfonts()
+```
+
+# Load the weekly Data
+
+```{r Load}
+
+tt <- tt_load("2021-06-29")
+
+raw_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-29/animal_rescues.csv')
+
+```
+
+# Cleaning Data
+
+```{r}
+
+animal_rescues <- raw_data %>% 
+  
+  mutate(date_time_of_call = dmy_hm(date_time_of_call),
+         
+         animal_group_parent = str_to_sentence(animal_group_parent),
+         
+         year_month = as.Date(floor_date(date_time_of_call, "month")),
+         
+         month = month(date_time_of_call, label = TRUE, abbr = FALSE),
+         
+         year = year(date_time_of_call),
+         
+         incident_notional_cost = parse_number(incident_notional_cost)
+         
+         ) 
+
+
+```
+
+# Data Prep for Plot
+
+```{r}
+
+## Sum of Incident Notional Cost for each animal per year
+
+animal_rescues_plot <- animal_rescues %>% 
+  
+  mutate(animal_group_parent = str_wrap(animal_group_parent, 15)) %>% 
+  
+  mutate(animal_group_parent = fct_lump(animal_group_parent, 9),
+         
+         ) %>% 
+  
+  count(year, animal_group_parent, wt = incident_notional_cost) %>% 
+  
+  mutate(animal_group_parent = fct_reorder(animal_group_parent, n,.fun = sum)) %>% 
+  
+  group_by(animal_group_parent) %>% 
+  
+  ## Adding a standardized column to be used in the tiles fill
+  
+  mutate(std = (n - min(n))/(max(n) - min(n))) %>% 
+  
+  ungroup() 
+
+
+```
+
+
+# Visualization
+
+```{r}
+
+# Defining a custom palette
+
+custom_palette <- c(RColorBrewer::brewer.pal(8, "Set2"),
+                    RColorBrewer::brewer.pal(9, "Set1")
+                    
+                    )
+
+
+# Plot
+
+animal_rescues_plot %>% 
+    
+  ggplot(aes(year, animal_group_parent, fill = animal_group_parent)) +
+  
+  # Tile of all values
+  geom_tile(aes(alpha = std),width = 0.9, height = 0.9) +
+  
+  # Highlighting the Maximum
+  geom_tile(
+    
+      data = . %>% filter(std == 1),
+      
+      color = "#F9EBE0",
+      
+      fill = NA,
+      
+      width = 0.8, 
+      
+      height = 0.8,
+      
+      size = 0.3
+    ) +
+  
+  # Highlighting the Minimum
+    geom_tile(
+      
+      data = . %>% filter(std == 0),
+      
+      aes(color = animal_group_parent),
+      
+      fill = NA,
+      
+      width = 0.8, 
+      
+      height = 0.8,
+      
+      size = 0.3
+      
+    ) +
+
+  # Adding Lables in the max and min tiles
+    geom_fit_text(
+      
+      data = . %>% filter(std %in% c(0,1)),
+      
+      aes(label = paste("£", scales::comma(n,1))),
+      
+      color = "#272635",
+      
+      family = "Century Gothic"
+    ) +
+  
+  # Duplicating the x-axis
+  scale_x_continuous(expand = c(0,0),
+                     
+                     breaks = seq(2009, 2020, 1),
+                     
+                     sec.axis = dup_axis(breaks = seq(2009, 2020, 1))
+                     
+                     )+
+  
+  # Additional Modifications
+  scale_y_discrete(expand = c(0,0)) +
+  
+  scale_fill_manual(values = custom_palette[1:11]) +
+  
+  scale_color_manual(values = custom_palette[1:11]) +
+  
+  theme_minimal() +
+  
+  theme(legend.position = "none",
+        
+        axis.title = element_blank(),
+        
+        axis.ticks = element_blank(),
+        
+        axis.text = element_text(
+          family = "Verdana", 
+          color = "#272635"
+             ),
+        plot.background = element_rect(fill = "#F9EBE0", color = "#F9EBE0"),
+      
+        plot.margin = margin(15,15,15,15),
+        
+        plot.title = element_text(family = "Verdana", size = 12, face = 2),
+        
+        plot.subtitle =element_markdown(lineheight = 1.1, size = 10,
+                                        family = "Verdana"),
+        
+        plot.caption = element_text(family = "Verdana")
+  )+
+  
+  labs(
+    
+    title = "Notional Cost of Animal Rescues by the London Fire Brigade:2009:2020",
+    
+    subtitle = "This chart presents the notional cost of rescue, in the period 2009-2020.<br> The labelled tiles represent the lowest and highest cost for each animal within the indicated period.<br>***The notional cost is calculated based on the length of time rounded up to the nearest hour spent by Pump<br>Aerial and FRU appliances at the incident and charged at the current Brigade hourly rate***",
+    
+    caption = "source :London.gov by way of Data is Plural and Georgios Karamani. | viz: Antony Rono"
+  )
+  
+  
+
+
+
+```
+
+## Saving Plot
+
+```{r}
+
+ggsave("plots/animal_rescue.png", 
+       bg = "transparent", 
+       width = 14, 
+       height = 8)
+
+```

@@ -1,0 +1,405 @@
+---
+title: "Animal Rescues: 2009-2020"
+author: "Antony Rono"
+date: 2021-07-04
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    source_code: embed
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+library(flexdashboard)
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(janitor)
+library(lubridate)
+library(magrittr)
+library(plotly)
+
+theme_set(theme_light())
+```
+
+```{r Load, include=FALSE}
+
+raw_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-29/animal_rescues.csv')
+
+```
+
+```{r Cleaning data, include=FALSE}
+
+animal_rescues <- raw_data %>% 
+  
+  mutate(date_time_of_call = dmy_hm(date_time_of_call),
+         
+         animal_group_parent = str_to_sentence(animal_group_parent),
+         
+         year_month = as.Date(floor_date(date_time_of_call, "month")),
+         
+         month = month(date_time_of_call, label = TRUE, abbr = FALSE),
+         
+         year = year(date_time_of_call),
+         
+         incident_notional_cost = parse_number(incident_notional_cost)
+         
+         ) %>% 
+  
+  filter(year < 2021)
+
+
+
+```
+
+```{r function to plot bar charts, include=FALSE}
+
+# Make a palette by drawing colors from `RColorBrewer`
+
+custom_palette <- c(RColorBrewer::brewer.pal(8, "Dark2"),
+                    RColorBrewer::brewer.pal(9, "Set1")
+                    
+                    )
+
+
+plot_categorical_bar <- function(tbl, col,wt = NULL, reorder = TRUE, nlevel = 8, coord_flip = TRUE){
+  
+  lumped_data <- tbl %>% 
+    
+    filter(!is.na({{col}})) %>% 
+  
+    mutate({{col}} :=fct_lump({{col}}, nlevel)) %>% 
+  
+    count({{col}},wt = {{wt}}, name = "Count")
+  
+  if(reorder){
+    
+    lumped_data %<>%  
+      
+      mutate({{col}} := fct_reorder({{col}}, Count))
+    
+  }
+  
+  p <- lumped_data %>% 
+  
+    ggplot(aes({{col}}, Count, fill = {{col}})) +
+  
+    geom_col() +
+  
+    theme(legend.position = "none") +
+  
+    scale_y_continuous(expand = c(0,0),labels = comma)+
+    
+    scale_fill_manual(values = custom_palette) +
+  
+    theme(legend.position = "none") 
+  
+  
+  if(coord_flip){
+    
+    p + coord_flip() +
+      
+      theme(axis.title.y = element_blank())
+    
+  }else{
+    
+    p +
+      
+      theme( axis.title.x = element_blank())
+  
+    }
+  
+}
+
+
+```
+
+
+
+
+Overall {data-icon="fa-map-marker-alt"}
+=======================================================================
+  
+Row {data-height=200}
+-----------------------------------------------------------------------
+  
+### Total Rescues
+  
+```{r total rescues}
+
+valueBox(value = comma(nrow(animal_rescues)), caption = "Total Number of Rescues", icon = "fa-hashtag", color = "green")
+
+```
+
+### Total Notional Cost
+
+```{r total cost}
+
+cost <- paste0("£",comma(sum(animal_rescues$incident_notional_cost, na.rm = TRUE)))
+
+valueBox(value = cost, caption = "Total Notional Cost", icon = "fa-coins", color = "blue")
+
+```
+
+### Most Rescued Animal
+
+```{r most rescued animal}
+
+animal <- animal_rescues %>% 
+  
+  count(animal_group_parent, sort = TRUE) %>% 
+  
+  head(1)
+
+value <- paste0(animal$animal_group_parent, " (",comma(animal$n), ")", " Rescues" )
+
+valueBox(value = value, caption = "Most Rescued Animal", icon = "fa-users", color = "coral")
+
+```
+
+Row {data-height=800}
+-----------------------------------------------------------------------
+  
+### Rescues by Animal Group Parent
+  
+```{r}
+
+p <- animal_rescues %>% 
+  
+  plot_categorical_bar(animal_group_parent)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+### Rescues by Property Category
+
+```{r}
+
+p <- animal_rescues %>% 
+  
+  plot_categorical_bar(property_category, nlevel = 5)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+### Rescues by Special Services Category
+
+```{r}
+
+p <- animal_rescues %>% 
+  
+  plot_categorical_bar(special_service_type_category)
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+
+Rescues by Month {data-icon="fa-twitter"}
+=======================================================================
+
+Row {data-height=200}
+-----------------------------------------------------------------------
+
+### Month with the Highest Number of Animal Rescue
+
+```{r user with most activity}
+
+month_dt <- animal_rescues %>%
+  
+  count(month, sort = TRUE) %>% head(1)
+  
+value <- paste0(month_dt$month, "(",comma(month_dt$n), " Rescues", ")" )
+
+valueBox(value = value, caption = "Month with Most Rescues", icon = "fa-calendar", color = "tomato")
+
+
+```
+
+### Month with the Highest Cost of Animal Rescue
+
+```{r date with most activity}
+
+month_dt <- animal_rescues %>%
+  
+  count(month, wt = incident_notional_cost, sort = TRUE) %>% head(1)
+  
+value <- paste0( month_dt$month, "(","£", comma(month_dt$n), ")" )
+
+valueBox(value = value, caption = "Month with Highest Rescue Cost", icon = "fa-pound-sign", color = "blueviolet")
+
+
+```
+
+Row {data-height=800}
+-----------------------------------------------------------------------
+
+### Number of Rescues by Month
+
+```{r}
+
+p <- animal_rescues %>% 
+  
+  plot_categorical_bar(month,  reorder = FALSE, nlevel = 12, coord_flip = FALSE) +
+  
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+### Incident Notinal Cost by Month
+
+```{r}
+
+p <- animal_rescues %>% 
+  
+  plot_categorical_bar(month, wt = incident_notional_cost, reorder = FALSE, nlevel = 12, coord_flip = FALSE) +
+  
+  scale_y_continuous(labels = scales::unit_format(unit = "K", scale = 1e-3,prefix = "£"),
+                     
+                     expand = c(0,0)) +
+  
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  
+  labs(y = "Incident Notional Cost")
+
+ggplotly(p, tooltip = c("x", "y"))
+```
+
+
+Trends {data-icon="fa-chart-line" data-orientation=columns}
+=======================================================================
+
+Column{.tabset}
+-----------------------------------------------------------------------
+
+### Monthly Trend in Animal Rescues
+
+```{r}
+
+p <- animal_rescues %>% 
+  
+  count(year_month) %>% 
+  
+  ggplot(aes(year_month, n))+
+    
+  geom_col(fill = "steelblue")+
+  
+  geom_line(color = "red")+
+  
+  scale_y_continuous(expand = c(0,0))+
+  
+  scale_x_date(expand = c(0,0),labels = date_format("%b %y"), breaks = date_breaks("years"))+
+  
+  theme(legend.position = "none") +
+  
+    labs(x = "",
+       
+       y = "Count")
+
+ggplotly(p, tooltip = c("x", "y"))
+```
+
+### Yearly Trend in Animal Rescues
+
+```{r}
+
+p <- animal_rescues %>% 
+  
+  count(year) %>% 
+  
+  filter(year < 2021) %>% 
+  
+  ggplot(aes(year, n))+
+    
+  geom_col(aes(fill = as.character(year)))+
+  
+  geom_line(aes(group = 0), color = "coral", size = 1.2)+
+  
+  scale_y_continuous(expand = c(0,0))+
+  
+  scale_x_continuous(expand = c(0,0))+
+  
+  scale_fill_manual(values = custom_palette) +
+  
+  theme(legend.position = "none") +
+  
+    labs(x = "",
+       
+       y = "Count")
+
+ggplotly(p, tooltip = c("x", "y"))
+```
+
+Column{.tabset}
+-----------------------------------------------------------------------
+
+### Monthly Trend in Incident Notional Cost
+
+```{r}
+
+p <- animal_rescues %>% 
+  
+  filter(!is.na(incident_notional_cost)) %>% 
+  
+  count(year_month, wt = incident_notional_cost) %>% 
+  
+  ggplot(aes(year_month, n))+
+    
+  geom_col(fill = "coral")+
+  
+  geom_line(color = "steelblue")+
+  
+  scale_y_continuous(expand = c(0,0))+
+  
+  scale_x_date(expand = c(0,0),labels = date_format("%b %y"), breaks = date_breaks("years"))+
+  
+  theme(legend.position = "none") +
+  
+  labs(x = "",
+       
+       y = "Incident Notional Cost")
+
+
+ggplotly(p, tooltip = c("x", "y"))
+```
+
+### Yearly Trend in Incident Notional Cost
+
+```{r}
+
+p <- animal_rescues %>% 
+  
+  filter(!is.na(incident_notional_cost)) %>% 
+  
+  count(year, wt = incident_notional_cost) %>% 
+  
+  ggplot(aes(year, n))+
+    
+  geom_col(aes(fill = as.character(year)))+
+  
+  geom_line(aes(group = 1), color = "coral", size = 1.2)+
+  
+  scale_y_continuous(expand = c(0,0), labels = comma)+
+  
+  scale_x_continuous(expand = c(0,0))+
+  
+  scale_fill_manual(values = custom_palette) +
+  
+  theme(legend.position = "none") +
+  
+  labs(x = "",
+       
+       y = "Incident Notional Cost")
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
