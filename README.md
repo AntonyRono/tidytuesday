@@ -3,6 +3,11 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 
 
 ---
+### 2021-07-13 🌐 Scooby Doo [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_07_13_scooby_doo/2021_07_13_tidy_tuesday.Rmd)
+
+![./plots/scooby_doo.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/scooby_doo.png)
+---
+---
 ### 2021-06-29 🌐 Animal Rescues [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_06_29_animal_rescues/2021_06_29_tidy_tuesday.Rmd) [(dashboard)](https://antonyrono.github.io/tidytuesday/2021_06_29_tidy_tuesday_dashboard.html)
 
 ![./plots/animal_rescue.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/animal_rescue.png)

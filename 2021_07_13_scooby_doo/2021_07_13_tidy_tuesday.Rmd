@@ -1,0 +1,189 @@
+---
+title: "Scooby-Doo Characters"
+author: "Antony Rono"
+date: 2021-07-18
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(lubridate)
+library(ggtext)
+library(extrafont)
+
+loadfonts()
+```
+
+# Load the weekly Data
+
+```{r Load}
+
+#tt <- tidytuesdayR::tt_load('2021-07-13')
+
+raw_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-07-13/scoobydoo.csv', na = c("NULL", "", NA))
+
+
+```
+
+# Clean Dates
+
+```{r Clean Data}
+
+scoobydoo <- raw_data %>% 
+  
+  mutate(date_aired = ymd(date_aired),
+         
+         run_time = as.numeric(run_time),
+         
+         year = floor_date(date_aired, "year"))
+
+```
+
+# Plot Labels and Colors
+
+```{r}
+
+## X axis labels - Markdown Images
+labels <-  c(
+  "Daphnie" = glue::glue("<img src='{here::here('2021_07_13_scooby_doo', 'Images', 'daphne.png')}'width='56'/>"),
+  "Shaggy" = glue::glue("<img src='{here::here('2021_07_13_scooby_doo', 'Images', 'shaggy.png')}'width='62'/>"),
+  "Velma" = glue::glue("<img src='{here::here('2021_07_13_scooby_doo', 'Images', 'velma.png')}'width='62'/>"),
+  "Fred" = glue::glue("<img src='{here::here('2021_07_13_scooby_doo', 'Images', 'fred.png')}'width='62'/>"),
+  "Scooby" = glue::glue("<img src='{here::here('2021_07_13_scooby_doo', 'Images', 'scooby.png')}'width='62'/>")
+)
+
+## Colors
+colors <-  tribble(
+  ~character, ~color,
+  "Daphnie", "#7C6AA8",
+  "Shaggy", "#B2BE34",
+  "Scooby", "#B1752C",
+  "Velma", "#FA9C39", 
+  "Fred", "#01A0DA"
+)
+
+
+#bg <- "thistle2"
+```
+
+
+# Wrangle
+
+```{r}
+
+# Captures, Unmasks and Number Captured for each character in Long Format 
+
+activity <- scoobydoo %>% 
+  
+  select(c(index, date_aired,season, starts_with("caught"),  starts_with("unmask"),  starts_with("captured"))) %>% #selecting columns of interest
+  
+  pivot_longer(-c(date_aired,season, index), names_to = "character") %>% #Long Format
+  
+    mutate(activity = str_extract(character, "unmask|captured|caught"),  # Extracting each category
+           
+         character = str_remove(character, "unmask_|captured_|caught_"),
+         
+         character = str_to_title(character)) %>% 
+  
+  filter(value == TRUE, !character %in% c("Not", "Other")) 
+
+
+## Count of Captured, Captures and Unmask
+
+activity_visual <- activity %>% 
+  
+  count(character, activity) %>% 
+  
+  left_join(colors) %>% 
+  
+  mutate(character = fct_reorder(character, n, max)) %>% 
+  
+  pivot_wider(names_from = activity, values_from = n)
+
+
+
+```
+
+# Visualize
+
+```{r}
+
+activity_visual %>% 
+  
+  ggplot(aes(x = character)) +
+  
+  geom_segment(aes(yend = caught, y = captured, xend = character, color = color), size = 3)+
+  
+  geom_segment(aes(yend = unmask, y = captured, xend = character, color = color), size = 3) +
+  
+  geom_point(aes(y = captured, color = color, shape = "Times Captured by Monster"), size = 8 ) +
+  
+  geom_point(aes(y = caught,  color = color, shape = "Monsters Caught"), size = 8,) +
+  
+  geom_point(aes(y = unmask, color = color,shape = "Monsters Unmasked"),size = 8) +
+  
+  geom_text(aes(label = captured, y = captured), color = "white",family = "Franklin Gothic Demi") +
+  
+  geom_text(aes(label = caught, y = caught), color = "white",family = "Franklin Gothic Demi") +
+  
+  geom_text(aes(label = unmask, y = unmask), color = "white",family = "Franklin Gothic Demi") +
+  
+  scale_x_discrete(name = NULL, labels = labels) +
+  
+  scale_y_continuous(breaks = seq(0, 160, 25)) +
+  
+  scale_color_identity() +
+  
+  theme_minimal()+
+  
+  theme(
+    
+    axis.text.y = element_markdown(color = "black", size = 11, vjust = 0),
+    
+    panel.grid.minor = element_blank(),
+    
+    panel.grid.major.x = element_blank(),
+    
+    legend.text = element_text(size = 11),
+        
+    legend.position = "top",   
+    
+    legend.direction = "horizontal",    
+    
+    legend.box = "horizontal",
+    
+    legend.title = element_blank(),
+    
+    plot.title = element_markdown(size = 25, family = "Franklin Gothic Demi", hjust = .5)
+    
+    #plot.background = element_rect(fill = bg, color = bg)
+        
+    
+  ) +
+  
+  labs(x = "", y = "", title = "Scooby-Doo Characters Activity - <span style='color:#B2BE34;'>**Oh Shaggy!**</span>",
+       
+       caption = "source: Kaggle & ScoobyPedia. | viz: Antony Rono")+
+  
+  coord_flip() 
+  
+
+```
+
+# Save Image
+
+
+```{r}
+ggsave("plots/scooby_doo.png", 
+       bg = "transparent", 
+       width = 14, 
+       height = 8)
+
+```
