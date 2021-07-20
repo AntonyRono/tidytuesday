@@ -145,7 +145,7 @@ activity_visual %>%
   
   theme(
     
-    axis.text.y = element_markdown(color = "black", size = 11, vjust = 0),
+    axis.text.y = element_markdown(color = "black", size = 11, vjust = .3),
     
     panel.grid.minor = element_blank(),
     
@@ -161,14 +161,14 @@ activity_visual %>%
     
     legend.title = element_blank(),
     
-    plot.title = element_markdown(size = 25, family = "Franklin Gothic Demi", hjust = .5)
+    plot.title = element_markdown(size = 25, family = "Franklin Gothic Demi", hjust = 0)
     
     #plot.background = element_rect(fill = bg, color = bg)
         
     
   ) +
   
-  labs(x = "", y = "", title = "Scooby-Doo Characters Activity - <span style='color:#B2BE34;'>**Oh Shaggy!**</span>",
+  labs(x = "", y = "", title = "Scooby-Doo Characters Performance Review - <span style='color:#7C6AA8;'>**Oh Daphnie!**</span>",
        
        caption = "source: Kaggle & ScoobyPedia. | viz: Antony Rono")+
   
@@ -182,7 +182,6 @@ activity_visual %>%
 
 ```{r}
 ggsave("plots/scooby_doo.png", 
-       bg = "transparent", 
        width = 14, 
        height = 8)
 
