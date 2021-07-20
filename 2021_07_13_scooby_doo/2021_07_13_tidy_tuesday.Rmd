@@ -179,7 +179,6 @@ activity_visual %>%
 
 # Save Image
 
-
 ```{r}
 ggsave("plots/scooby_doo.png", 
        width = 14, 
