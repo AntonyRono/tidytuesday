@@ -103,7 +103,7 @@ activity_visual <- activity %>%
   
   left_join(colors) %>% 
   
-  mutate(character = fct_reorder(character, n, max)) %>% 
+  mutate(character = fct_reorder(character, n, sum)) %>% 
   
   pivot_wider(names_from = activity, values_from = n)
 
