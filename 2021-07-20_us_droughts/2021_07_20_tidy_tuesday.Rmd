@@ -108,7 +108,7 @@ drought_plot %>%
            
          plot.title=element_markdown(face="bold", size=20,family = "Bodoni MT Black"), 
          
-         plot.subtitle = element_text(size = 16,family = "Bodoni MT"),
+         plot.subtitle = element_markdown(size = 16,family = "Bodoni MT"),
          
          plot.caption = element_text(size = 11),
          
@@ -134,7 +134,7 @@ drought_plot %>%
   
   labs(
     title = "<span style='color:red;'>**Flaming Western!!**</span> US Drought: 2000 - 2021",
-    subtitle = "This chart shows the percent of land under drought in the different states of the US since the start of the decade.\nWouldn't we all love to live in the Eastern States?",
+    subtitle = "This chart shows the percent of land under drought in the different states of the US since the start of the decade.<br>Wouldn't we all love to live in the <span style='color:steelblue;'>**Cool Eastern States?**</span>",
     fill = "Drought\nLevel",
     caption = "source: U.S. Drought Monitor. | viz: Antony Rono")
   
