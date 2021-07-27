@@ -43,9 +43,7 @@ drought_lvl <- tibble(
   drought_lvl = c("None", "D0", "D1", "D2", "D3", "D4"),
   
   label = c("None", "Abnormally Dry", "Moderate", "Severe", 
-            "Extreme", "Exceptional"),
-  
-  color =  c("000000", "#f0d19d", "#eda098", "#e57d76", "#dc5053", "#a32325")
+            "Extreme", "Exceptional")
 )
 
 
@@ -65,11 +63,13 @@ drought <- raw_data %>%
 levels <-  c("Abnormally Dry", "Moderate", "Severe", 
             "Extreme", "Exceptional")
 
+colors <-   c( "#f0d19d", "#eda098", "#e57d76", "#dc5053", "#a32325")
+
 drought_plot <- drought %>% 
   
   mutate(year = year(valid_start)) %>% 
   
-  group_by(state_abb,year, label, color) %>% 
+  group_by(state_abb,year, label) %>% 
   
   summarise(area = mean(area_pct)) %>% 
   
@@ -134,7 +134,7 @@ drought_plot %>%
   
   labs(
     title = "<span style='color:red;'>**Flaming Western!!**</span> US Drought: 2000 - 2021",
-    subtitle = "This chart presents the percent of land under drought in the different states of the US since the start of the decade.\nWouldn't we all love to live in the Eastern States?",
+    subtitle = "This chart shows the percent of land under drought in the different states of the US since the start of the decade.\nWouldn't we all love to live in the Eastern States?",
     fill = "Drought\nLevel",
     caption = "source: U.S. Drought Monitor. | viz: Antony Rono")
   
