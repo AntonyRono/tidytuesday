@@ -61,7 +61,7 @@ drought <- raw_data %>%
 ## Data Prep for Plot
 
 ```{r}
-colors = c("#f0d19d", "#eda098", "#e57d76", "#dc5053", "#a32325")
+
 levels <-  c("Abnormally Dry", "Moderate", "Severe", 
             "Extreme", "Exceptional")
 
