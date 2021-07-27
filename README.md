@@ -3,6 +3,11 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 
 
 ---
+### 2021-07-20 🌐 US Droughts [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_07_20_us_droughts/2021_07_20_tidy_tuesday.Rmd)
+
+![./plots/scooby_doo.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/us_droughts.png)
+---
+---
 ### 2021-07-13 🌐 Scooby Doo [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_07_13_scooby_doo/2021_07_13_tidy_tuesday.Rmd)
 
 ![./plots/scooby_doo.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/scooby_doo.png)

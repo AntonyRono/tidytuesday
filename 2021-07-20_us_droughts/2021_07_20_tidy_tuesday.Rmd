@@ -1,0 +1,152 @@
+---
+title: "US Droughts"
+author: "Antony Rono"
+date: 2021-07-27
+output: html_output
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(lubridate)
+library(ggtext)
+library(extrafont)
+library(geofacet)
+
+loadfonts()
+```
+
+# Load the weekly Data
+
+```{r Load}
+
+tt <- tidytuesdayR::tt_load('2021-07-20')
+
+raw_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-07-20/drought.csv')
+
+
+```
+
+# Data Cleaning
+
+## Converting Date Structure and Re-coding Drought Levels
+
+```{r Clean Data}
+
+drought_lvl <- tibble(
+  drought_lvl = c("None", "D0", "D1", "D2", "D3", "D4"),
+  
+  label = c("None", "Abnormally Dry", "Moderate", "Severe", 
+            "Extreme", "Exceptional"),
+  
+  color =  c("000000", "#f0d19d", "#eda098", "#e57d76", "#dc5053", "#a32325")
+)
+
+
+drought <- raw_data %>% 
+  
+  mutate(valid_start = ymd(valid_start)) %>% 
+  
+  left_join(drought_lvl)
+  
+
+```
+
+## Data Prep for Plot
+
+```{r}
+colors = c("#f0d19d", "#eda098", "#e57d76", "#dc5053", "#a32325")
+levels <-  c("Abnormally Dry", "Moderate", "Severe", 
+            "Extreme", "Exceptional")
+
+drought_plot <- drought %>% 
+  
+  mutate(year = year(valid_start)) %>% 
+  
+  group_by(state_abb,year, label, color) %>% 
+  
+  summarise(area = mean(area_pct)) %>% 
+  
+  ungroup() %>% 
+  
+  mutate(state_name = us_state_grid1$name[match(state_abb, us_state_grid1$code)],
+         
+         label = fct_relevel(label, levels)
+         
+         ) %>% 
+  
+  filter(label !="None") 
+
+```
+
+
+# Visualization
+
+```{r}
+
+drought_plot %>% 
+  
+  ggplot(aes(year, area, fill = label)) +
+  
+  geom_area() +
+  
+  scale_fill_manual(values = colors)+
+  
+  facet_geo(~state_abb,
+            
+            grid = "us_state_grid1") +
+  
+  theme_void() +
+  
+     theme(text=element_text(size=18), 
+           
+         plot.title=element_markdown(face="bold", size=20,family = "Bodoni MT Black"), 
+         
+         plot.subtitle = element_text(size = 16,family = "Bodoni MT"),
+         
+         plot.caption = element_text(size = 10),
+         
+         strip.text = element_text(size = 8, face = "bold"),
+         
+         legend.direction = "horizontal",
+         
+         plot.background = element_rect(fill = "ivory", color = "transparent"),
+         
+         panel.background = element_rect(fill="snow2", color="transparent"),
+         
+         panel.spacing = unit(0.2, "lines"), 
+         
+         plot.margin = margin(10, 10, 10, 10),
+         
+         legend.title = element_text(size = 10, face = "bold"),
+         
+         legend.position=c(0.23, 0.95),
+         
+         legend.text=element_text(size=8.5),
+         
+         legend.key.width = unit(1, "cm"))+
+  
+  labs(
+    title = "<span style='color:red;'>**Flaming Western!!**</span> US Drought: 2000 - 2021",
+    subtitle = "This chart presents the percent of land under drought in the different states of the US since the start of the decade.\nWouldn't we all love to live in the Eastern States?",
+    fill = "Drought Level",
+    caption = "source: U.S. Drought Monitor. | viz: Antony Rono")
+  
+
+```
+
+
+# Save Image
+
+```{r}
+ggsave("plots/us_droughts.png", 
+       width = 14, 
+       height = 8)
+
+```

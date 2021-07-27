@@ -1,0 +1,209 @@
+---
+title: "Scooby-Doo Characters"
+author: "Antony Rono"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(flexdashboard)
+library(tidyverse)
+library(tidytuesdayR)
+library(scales)
+library(lubridate)
+```
+
+
+```{r Load, include=FALSE}
+
+tt <- tidytuesdayR::tt_load('2021-07-13')
+
+raw_data <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-07-13/scoobydoo.csv', na = c("NULL", "", NA))
+
+
+```
+
+```{r Wrangle, include=FALSE}
+
+scoobydoo <- raw_data %>% 
+  
+  mutate(date_aired = ymd(date_aired),
+         
+         run_time = as.numeric(run_time),
+         
+         year = floor_date(date_aired, "year"))
+
+```
+
+
+### Number of Episodes per Season
+
+```{r Visualize}
+
+scoobydoo %>% 
+  
+  count(season) %>% 
+  
+  ggplot(aes(season, n, fill = season)) +
+  
+  geom_col() +
+  
+  scale_y_continuous(expand = c(0,0))+
+  
+  scale_x_discrete(expand = c(0,0))+
+  
+  theme(legend.position = "none") +
+  
+  labs(y = "Number of episodes")
+
+  
+```
+
+
+### IMDB Rating Overtime - Monthly Trend
+
+```{r}
+
+# scoobydoo %>% 
+#   
+#   ggplot(aes(date_aired, imdb)) +
+#   
+#   geom_line(linetype = 2, color = "coral") +
+#   
+#   scale_x_date(date_breaks = "5 years", date_labels = "%b-%y", expand = c(0,0))
+# 
+
+scoobydoo %>% 
+  
+  mutate(month = floor_date(date_aired, "month")) %>% 
+  
+  group_by(month) %>% 
+  
+  summarise(n = n(),
+            
+            avg = mean(imdb, na.rm = TRUE)) %>% 
+  
+  ggplot(aes(month, avg)) +
+  
+  geom_line(linetype = 2, color = "coral") +
+  
+  scale_x_date(date_breaks = "5 years", date_labels = "%b-%y", expand = c(0,0))
+  
+
+```
+
+### IMDB Rating Overtime - Yearly Trend
+
+```{r}
+
+scoobydoo %>% 
+  
+  mutate(year = floor_date(date_aired, "year"),
+         
+         format = fct_reorder(format, imdb)) %>% 
+  
+  group_by(year, format) %>% 
+  
+  summarise(n = n(),
+            
+            avg = mean(imdb, na.rm = TRUE)) %>% 
+
+  
+  ggplot(aes(year, avg, fill = format)) +
+  
+  geom_col()+
+  
+  #geom_line(linetype = 1) +
+  
+  scale_x_date(date_breaks = "10 years", date_labels = "%b-%y", expand = c(0,0)) +
+  
+  scale_y_continuous(expand = c(0,0))
+
+```
+
+
+### Run Time Overtime
+
+```{r}
+
+scoobydoo %>% 
+  
+  mutate(year = floor_date(date_aired, "year"),
+         
+         format = fct_reorder(format, run_time)) %>% 
+  
+  group_by(year, format) %>% 
+  
+  summarise(n = n(),
+            
+            avg = mean(run_time, na.rm = TRUE)) %>% 
+
+  
+  ggplot(aes(year, avg, fill = format)) +
+  
+  geom_col()+
+  
+  #geom_line(linetype = 1) +
+  
+  scale_x_date(date_breaks = "10 years", date_labels = "%b-%y", expand = c(0,0)) +
+  
+  scale_y_continuous(expand = c(0,0))
+
+```
+
+### Captures by Character - Overall
+
+```{r}
+
+captures <- scoobydoo %>% 
+  
+  select(c(date_aired,season, starts_with("caught"))) %>% 
+  
+  pivot_longer(-c(date_aired,season), names_to = "character") %>% 
+  
+  mutate(character = str_remove(character, "caught_"),
+         
+         character = str_to_title(character)) %>% 
+  
+  filter(value == TRUE, character != "Not") 
+
+
+captures %>% 
+  
+  count(character) %>% 
+  
+  mutate(character = fct_reorder(character, n, .desc = TRUE)) %>% 
+  
+  ggplot(aes(character, n)) +
+  
+  geom_col()
+  
+  
+
+```
+
+### Captures by Character - Trend
+
+```{r}
+
+captures %>% 
+  
+  mutate(year = floor_date(date_aired, "year")) %>% 
+  
+  count(character, year) %>% 
+  
+  #mutate(character = fct_reorder(character, n, .desc = TRUE)) %>% 
+  
+  ggplot(aes(year, n, color = character)) +
+  
+  geom_line()
+  
+
+
+```
+
