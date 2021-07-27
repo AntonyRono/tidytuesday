@@ -81,7 +81,7 @@ drought_plot <- drought %>%
          
          ) %>% 
   
-  filter(label !="None") 
+  filter(label !="None", state_abb != "PR") 
 
 ```
 
@@ -110,9 +110,9 @@ drought_plot %>%
          
          plot.subtitle = element_text(size = 16,family = "Bodoni MT"),
          
-         plot.caption = element_text(size = 10),
+         plot.caption = element_text(size = 11),
          
-         strip.text = element_text(size = 8, face = "bold"),
+         strip.text = element_text(size = 9, face = "bold"),
          
          legend.direction = "horizontal",
          
@@ -126,16 +126,16 @@ drought_plot %>%
          
          legend.title = element_text(size = 10, face = "bold"),
          
-         legend.position=c(0.23, 0.95),
+         legend.position=c(0.22, 0.95),
          
-         legend.text=element_text(size=8.5),
+         legend.text=element_text(size=9),
          
          legend.key.width = unit(1, "cm"))+
   
   labs(
     title = "<span style='color:red;'>**Flaming Western!!**</span> US Drought: 2000 - 2021",
     subtitle = "This chart presents the percent of land under drought in the different states of the US since the start of the decade.\nWouldn't we all love to live in the Eastern States?",
-    fill = "Drought Level",
+    fill = "Drought\nLevel",
     caption = "source: U.S. Drought Monitor. | viz: Antony Rono")
   
 
