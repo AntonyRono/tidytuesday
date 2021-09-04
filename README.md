@@ -3,6 +3,11 @@ Codes, plots and dashboards for the [#TidyTuesday challenge](https://github.com/
 
 
 ---
+### 2021-08-31 🌐 Bird Baths [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021_08_31_bird_baths/2021_08_31_tidy_tuesday.Rmd)
+
+![./plots/scooby_doo.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/bird_baths.png)
+---
+---
 ### 2021-07-20 🌐 US Droughts [(code)](https://github.com/AntonyRono/tidytuesday/blob/main/2021-07-20_us_droughts/2021_07_20_tidy_tuesday.Rmd)
 
 ![./plots/scooby_doo.png](https://github.com/AntonyRono/tidytuesday/blob/main/plots/us_droughts.png)
