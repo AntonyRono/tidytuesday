@@ -90,11 +90,10 @@ custom_palette <- c(rcartocolor::carto_pal(11, "Prism"),
 bird_baths_count %>% 
   
   ggplot(aes(x=as.factor(id), y=n, fill = bird_type, color = bird_type)) +       # Note that id is a factor. If x is numeric, there is some space between the first bar
-  
-  # This add the bars with a blue color
+
   geom_bar(stat="identity", width = 0.2) +
   
-  # Limits of the plot = very important. The negative value controls the size of the inner circle, the positive one is useful to add size over each bar
+  # Limits of the plot = very important. The negative value controls the size of the inner circle, the positive one is useful to add size over each bar. Set the upper limit slightly above than the maximum value to allow space for texts
   ylim(-210,750) +
   
   #Changing color of bars
@@ -119,7 +118,7 @@ bird_baths_count %>%
   # This makes the coordinate polar instead of cartesian.
   coord_polar(start = 0) +
   
-  # Add the labels, using the label_data dataframe that we have created before
+  # Add the labels, using the label data frame that we have created before
   geom_text(data=label,
             aes(x=id, y=n+10, label=bird_type, hjust=hjust), 
             color="white", 
@@ -129,7 +128,7 @@ bird_baths_count %>%
             size=3.5, 
             angle= label$angle, 
             inherit.aes = FALSE ) +
-  # Add main text within the circle
+  # Add main text inside the inner circle
   geom_text(
     aes(x = 0, y = -80, label = "Bird Baths"),
     size = 5.5,
@@ -137,7 +136,7 @@ bird_baths_count %>%
     color = "tomato1",
     fontface = "bold"
   )+
-  #Add sub text within the circle
+  #Add sub text inside the inner circle
   geom_text(
     aes(x = 0, y = -210, label = str_wrap("Occurrence of Australian bird species at bird baths in private gardens", 25)),
     size = 3.3,
