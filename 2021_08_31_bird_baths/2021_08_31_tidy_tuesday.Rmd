@@ -95,7 +95,7 @@ bird_baths_count %>%
   geom_bar(stat="identity", width = 0.2) +
   
   # Limits of the plot = very important. The negative value controls the size of the inner circle, the positive one is useful to add size over each bar
-  ylim(-200,700) +
+  ylim(-210,750) +
   
   #Use the Prism color scale for the categories
   scale_fill_manual(values = custom_palette)  +
@@ -119,28 +119,28 @@ bird_baths_count %>%
   # This makes the coordinate polar instead of cartesian.
   coord_polar(start = 0) +
   
-  # Add the labels, using the label_data dataframee that we have created before
+  # Add the labels, using the label_data dataframe that we have created before
   geom_text(data=label,
             aes(x=id, y=n+10, label=bird_type, hjust=hjust), 
             color="white", 
             fontface="bold.italic",
             family = "sans",
-            alpha=0.6, 
-            size=2.8, 
+            alpha=.8, 
+            size=3.5, 
             angle= label$angle, 
             inherit.aes = FALSE ) +
   # Add main text within the circle
   geom_text(
     aes(x = 0, y = -80, label = "Bird Baths"),
-    size = 5,
+    size = 5.5,
     family = "Segoe UI",
     color = "tomato1",
     fontface = "bold"
   )+
   #Add sub text within the circle
   geom_text(
-    aes(x = 0, y = -200, label = str_wrap("Occurrence of Australian bird species at bird baths in private gardens", 25)),
-    size = 3,
+    aes(x = 0, y = -210, label = str_wrap("Occurrence of Australian bird species at bird baths in private gardens", 25)),
+    size = 3.3,
     family = "Segoe UI",
     color = "tomato3"
   ) +
