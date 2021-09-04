@@ -145,7 +145,7 @@ bird_baths_count %>%
     color = "tomato3"
   ) +
 
-  labs(caption = "source :Cleary et al, 2016. | viz: Antony Rono")
+  labs(caption = "source: Cleary et al, 2016. | viz: Antony Rono")
   
   
 ```
