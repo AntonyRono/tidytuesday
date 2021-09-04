@@ -89,7 +89,7 @@ custom_palette <- c(rcartocolor::carto_pal(11, "Prism"),
 # Plottng
 bird_baths_count %>% 
   
-  ggplot(aes(x=as.factor(id), y=n, fill = bird_type)) +       # Note that id is a factor. If x is numeric, there is some space between the first bar
+  ggplot(aes(x=as.factor(id), y=n, fill = bird_type, color = bird_type)) +       # Note that id is a factor. If x is numeric, there is some space between the first bar
   
   # This add the bars with a blue color
   geom_bar(stat="identity", width = 0.2) +
@@ -97,8 +97,10 @@ bird_baths_count %>%
   # Limits of the plot = very important. The negative value controls the size of the inner circle, the positive one is useful to add size over each bar
   ylim(-210,750) +
   
-  #Use the Prism color scale for the categories
+  #Changing color of bars
   scale_fill_manual(values = custom_palette)  +
+  
+  scale_color_manual(values = custom_palette)  +
   
   # Customize the theme
   hrbrthemes::theme_modern_rc()+
@@ -111,9 +113,7 @@ bird_baths_count %>%
     axis.title = element_blank(),
     panel.grid.major.x = element_blank(),
     legend.position  = "none",
-    plot.margin = unit(rep(-1.5,4), "cm"),      # Adjust the margin to make in sort labels are not truncated!
-    plot.caption = element_text(vjust = 1),
-    plot.caption.position = "plot"
+    #plot.margin = unit(rep(1.2,4), "cm")      # Adjust the margin to make in sort labels are not truncated!
     ) +
   
   # This makes the coordinate polar instead of cartesian.
@@ -154,7 +154,8 @@ bird_baths_count %>%
 
 ```{r}
 ggsave("plots/bird_baths.png", 
-       width = 14, 
-       height = 8)
+       bg = "transparent",
+       width = 10, 
+       height = 11)
 
 ````
